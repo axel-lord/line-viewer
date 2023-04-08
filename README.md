@@ -10,4 +10,4 @@ Common enough occurance for me to have, say, some filepaths or hyperlinks listed
 
 ## How?
 
-Use cargo to build and either install or dont with cargo. No need to add it to path if you don't inted to use it from the command line, even in such a case it might be better to just alias the full path.
+Use cargo to build and either install or don't with cargo. No need to add it to path if you don't inted to use it from the command line, even in such a case it might be better to just alias the full path.
