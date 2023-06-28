@@ -9,7 +9,7 @@ use iced::{
     window::{self, icon::Icon},
     Color, Element, Length, Padding, Sandbox, Settings,
 };
-use std::{fs::File, io, path::PathBuf};
+use std::{fmt::Write, fs::File, io, path::PathBuf, process::Command};
 use tap::Pipe;
 
 #[derive(Parser)]
@@ -17,9 +17,35 @@ struct Cli {
     file_path: PathBuf,
 }
 
-struct App(anyhow::Result<Vec<&'static str>>, String);
+#[derive(Default)]
+struct Action {
+    prefix: Vec<String>,
+    suffix: Vec<String>,
+}
+
+struct App(anyhow::Result<(Vec<String>, Action)>, String);
+
 impl App {
-    fn construct() -> anyhow::Result<(Vec<&'static str>, String)> {
+    fn parse(body: &str) -> (Vec<String>, Action) {
+        let mut action = Action::default();
+        let mut lines = Vec::new();
+
+        for line in body.lines() {
+            if let Some(line) = line.strip_prefix('#') {
+                if let Some(prefix) = line.strip_prefix("-pre ") {
+                    action.prefix.push(prefix.into());
+                } else if let Some(suffix) = line.strip_prefix("-suf ") {
+                    action.suffix.push(suffix.into())
+                }
+            } else if !line.trim().is_empty() {
+                lines.push(line.into());
+            }
+        }
+
+        (lines, action)
+    }
+
+    fn construct() -> anyhow::Result<(Vec<String>, Action, String)> {
         let Cli { file_path } =
             Cli::try_parse().context("failed to parse input, was no filename given?")?;
 
@@ -28,19 +54,17 @@ impl App {
         )?)
         .context("failed to read file to memory")
         .map(|s| {
-            (
-                s.into_boxed_str().pipe(Box::leak).lines().collect(),
-                format!("\"{}\" loaded", file_path.display()),
-            )
+            let (lines, action) = App::parse(&s);
+            (lines, action, format!("\"{}\" loaded", file_path.display()))
         })
     }
 }
 impl Sandbox for App {
-    type Message = &'static str;
+    type Message = String;
 
     fn new() -> Self {
         match Self::construct() {
-            Ok((lines, status)) => Self(Ok(lines), status),
+            Ok((lines, action, status)) => Self(Ok((lines, action)), status),
             Err(err) => Self(Err(err), "error occured".into()),
         }
     }
@@ -50,10 +74,30 @@ impl Sandbox for App {
     }
 
     fn update(&mut self, message: Self::Message) {
-        if let Err(e) = cli_clipboard::set_contents(message.into()) {
-            println!("failed to open \"{message}\", {e}");
-        } else {
-            self.1 = format!("\"{message}\" copied to clipboard");
+        if let Ok((_, Action { prefix, suffix })) = &self.0 {
+            let iter = prefix
+                .iter()
+                .skip(1)
+                .chain(Some(&message))
+                .chain(suffix.iter());
+
+            self.1 = prefix
+                .first()
+                .into_iter()
+                .chain(iter.clone())
+                .fold(String::new(), |mut a, b| {
+                    _ = write!(&mut a, " {b}");
+                    a
+                })
+                .trim()
+                .into();
+
+            _ = iter
+                .fold(
+                    &mut Command::new(prefix.first().map(String::as_str).unwrap_or("echo")),
+                    |cmd, arg| cmd.arg(arg),
+                )
+                .spawn();
         }
     }
 
@@ -63,11 +107,15 @@ impl Sandbox for App {
 
     fn view(&self) -> iced::Element<'_, Self::Message> {
         Column::new()
-            .push(match self.0 {
-                Ok(ref lines) => lines
+            .push(match &self.0 {
+                Ok((lines, _)) => lines
                     .iter()
                     .fold(Column::new(), |col, line| {
-                        col.push(button(*line).style(theme::Button::Text).on_press(*line))
+                        col.push(
+                            button(text(line))
+                                .style(theme::Button::Text)
+                                .on_press(line.clone()),
+                        )
                     })
                     .pipe(container)
                     .width(Length::Fill)
