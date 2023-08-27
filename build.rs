@@ -2,7 +2,7 @@ use std::{env, fs, path::Path};
 
 use resvg::{
     tiny_skia::{Pixmap, Transform},
-    usvg::{Tree, TreeParsing},
+    usvg::{self, TreeParsing},
 };
 
 #[cfg(windows)]
@@ -12,17 +12,14 @@ fn main() {
     println!("cargo:rerun-if-changed=./assets/icon.svg");
 
     let image = fs::read_to_string("./assets/icon.svg").expect("file should exist");
-    let svg_tree = Tree::from_str(&image, &Default::default()).expect("image should be an svg");
+    let usvg_tree =
+        usvg::Tree::from_str(&image, &Default::default()).expect("image should be an svg");
+    let resvg_tree = resvg::Tree::from_usvg(&usvg_tree);
 
     let mut pixmap = Pixmap::new(512, 512).expect("pixmap should be created");
+    let mut pixmap_mut = pixmap.as_mut();
 
-    resvg::render(
-        &svg_tree,
-        resvg::FitTo::Size(512, 512),
-        Transform::identity(),
-        pixmap.as_mut(),
-    )
-    .expect("svg render should succeed");
+    resvg_tree.render(Transform::identity(), &mut pixmap_mut);
 
     let out_dir = env::var("OUT_DIR").expect("env var OUT_DIR should exist");
     let mut png_path = Path::new(&out_dir).to_owned();

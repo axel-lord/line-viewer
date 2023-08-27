@@ -8,13 +8,14 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.70"
-clap = { version = "4.2.1", features = ["derive"] }
-iced = { version = "0.8.0", features = ["image", "svg"] }
+anyhow = "1.0.75"
+clap = { version = "4.4.0", features = ["derive"] }
+edit = "0.1.4"
+iced = { version = "0.10.0", features = ["image", "svg"] }
 tap = "1.0.1"
 
 [build-dependencies]
-resvg = "0.30.0"
+resvg = "0.35.0"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1"
