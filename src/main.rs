@@ -225,7 +225,9 @@ impl Sandbox for App {
         };
 
         Column::new()
-            .push_if(edit_active, || container(text("lines")).padding(3))
+            .push_if(edit_active, || {
+                Row::new().push(text("lines")).padding(3).spacing(3)
+            })
             .push_if(edit_active, || horizontal_rule(1))
             .push(match &self.state {
                 Ok(State {
@@ -261,7 +263,9 @@ impl Sandbox for App {
                     .pipe(Element::from),
             })
             .push_if(edit_active, || horizontal_rule(1))
-            .push_if(edit_active, || container(text("command")).padding(3))
+            .push_if(edit_active, || {
+                Row::new().padding(3).spacing(3).push(text("command"))
+            })
             .push_if(edit_active, || horizontal_rule(1))
             .push_maybe(self.state.as_ref().ok().and_then(|state| {
                 state.edit.then(|| {
@@ -366,6 +370,18 @@ impl Sandbox for App {
                             .on_press_maybe(self.state.as_ref().ok().and_then(|content| {
                                 content.history.has_future().then_some(Message::Redo)
                             }))
+                    })
+                    .push_if(edit_active, || {
+                        line_edit_button(ListType::Lines, 0, message::LineEdit::Add, "add line")
+                            .style(theme::Button::Positive)
+                    })
+                    .push_if(edit_active, || {
+                        line_edit_button(ListType::Prefix, 0, message::LineEdit::Add, "add prefix")
+                            .style(theme::Button::Positive)
+                    })
+                    .push_if(edit_active, || {
+                        line_edit_button(ListType::Suffix, 0, message::LineEdit::Add, "add suffix")
+                            .style(theme::Button::Positive)
                     })
                     .push(
                         text(&self.status)

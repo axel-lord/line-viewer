@@ -57,6 +57,8 @@ impl LineView {
                 }
             } else if !line.trim().is_empty() {
                 lines.push(line.into());
+            } else {
+                lines.push(String::new());
             }
         }
 
