@@ -7,6 +7,7 @@ pub enum Message {
     Undo,
     Redo,
     EditMessage(ListType, ListEdit),
+    ToTab(usize),
 }
 
 #[derive(Debug, Clone)]

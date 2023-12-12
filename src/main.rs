@@ -14,7 +14,8 @@ use iced::{
     alignment::Horizontal,
     theme,
     widget::{
-        button, checkbox, container, horizontal_rule, scrollable, text, text_input, Column, Row,
+        button, checkbox, container, horizontal_rule, scrollable, text, text_input, Button, Column,
+        Row,
     },
     window, Alignment, Color, Element, Font, Length, Padding, Sandbox, Settings,
 };
@@ -26,12 +27,14 @@ use tap::Pipe;
 
 #[derive(Parser)]
 struct Cli {
-    file_path: PathBuf,
+    #[arg(required = true)]
+    file_path: Vec<PathBuf>,
 }
 
 struct App {
-    state: anyhow::Result<State>,
-    status: String,
+    state: Vec<anyhow::Result<State>>,
+    status: Vec<String>,
+    current: usize,
 }
 
 impl App {
@@ -69,6 +72,70 @@ impl App {
     }
 }
 
+fn min_button<'a, M>(content: impl Into<Element<'a, M>>) -> Button<'a, M> {
+    button(content)
+        .width(Length::Shrink)
+        .height(Length::Shrink)
+        .padding(2)
+}
+
+fn line_edit_button<'a>(
+    list_type: message::ListType,
+    index: usize,
+    line_edit_msg: message::LineEdit,
+    content: impl Into<Element<'a, message::Message>>,
+) -> Button<'a, message::Message> {
+    min_button(content).on_press(Message::EditMessage(
+        list_type,
+        message::ListEdit(index, line_edit_msg),
+    ))
+}
+
+fn add_button<'a>(list_type: message::ListType, index: usize) -> Button<'a, message::Message> {
+    line_edit_button(list_type, index, message::LineEdit::Add, "add").style(theme::Button::Positive)
+}
+
+fn line_entry<'a>(
+    list_type: message::ListType,
+    index: usize,
+    elem: &str,
+) -> Row<'a, message::Message> {
+    Row::new()
+        .spacing(3)
+        .padding(0)
+        .height(Length::Shrink)
+        .width(Length::Shrink)
+        .align_items(Alignment::Center)
+        .push(
+            line_edit_button(list_type, index, message::LineEdit::Remove, "del")
+                .style(theme::Button::Destructive),
+        )
+        .push(add_button(list_type, index + 1))
+        .push(line_edit_button(
+            list_type,
+            index,
+            message::LineEdit::Up,
+            "up",
+        ))
+        .push(line_edit_button(
+            list_type,
+            index,
+            message::LineEdit::Down,
+            "down",
+        ))
+        .push(
+            text_input("...", elem)
+                .padding(2)
+                .on_input(move |s| {
+                    Message::EditMessage(
+                        list_type,
+                        message::ListEdit(index, message::LineEdit::Update(s)),
+                    )
+                })
+                .width(Length::Fill),
+        )
+}
+
 impl Sandbox for App {
     type Message = Message;
 
@@ -83,77 +150,81 @@ impl Sandbox for App {
     fn new() -> Self {
         Cli::try_parse()
             .context("failed to parse input, was no filename given?")
-            .and_then(|cli| {
-                File::open(&cli.file_path).context(
-                    "failed to open file, does it exist and do you have the proper permissions?",
-                ).map(move |file| (file, cli.file_path))
-            })
-            .and_then(|(file, file_path)| {
-                io::read_to_string(file)
-                    .context("failed to read file to memory")
-                    .map(move |text| (text, file_path))
-            })
             .map_or_else(
                 |err| Self {
-                    state: Err(err),
-                    status: String::from("error occured"),
+                    state: vec![Err(err)],
+                    status: vec![String::from("error occured")],
+                    current: 0,
                 },
-                |(text, file_path)| {
-                    let content = LineView::parse(&text);
+                |cli| {
+                    let (state, status) = cli.file_path.into_iter().map(|file_path| {
+                        File::open(&file_path)
+                            .context("failed to open file, does it exist and do you have the proper permissions?")
+                            .and_then(|file| io::read_to_string(file).context("failed to read file to memory"))
+                            .map(|content| LineView::parse(&content)).map_or_else(|err| {
+                                let status = format!("error reading \"{}\", {err}", file_path.display());
+                                (Err(err), status)
+                            }, |content| {
+                                let status = format!("\"{}\" loaded", file_path.display());
+                                (Ok(State { history: History::from_iter(Some(content.clone())), content, file_path: file_path.clone(), edit: false }), status)
+                            })
+                    }).unzip();
                     Self {
-                        status: format!("\"{}\" loaded", file_path.display()),
-                        state: Ok(State {
-                            history: History::from_iter(Some(content.clone())),
-                            content,
-                            file_path,
-                            edit: false,
-                        }),
+                        state,
+                        status,
+                        current: 0,
                     }
                 },
             )
     }
 
     fn update(&mut self, message: Self::Message) {
-        if let Ok(state) = &mut self.state {
-            match message {
-                Message::Choose(message) => {
-                    self.status = state.content.action.spawn(message);
-                }
-                Message::Edit(new_state) => {
-                    state.edit = new_state;
-                }
-                Message::Save => self.status = Self::save(state),
-                Message::Cancel => state.content = state.history.soft_reset(),
-                Message::Undo => state.content = state.history.undo(),
-                Message::Redo => state.content = state.history.redo(),
-                Message::EditMessage(list_type, msg) => {
-                    let list = match list_type {
-                        ListType::Suffix => &mut state.content.action.suffix,
-                        ListType::Prefix => &mut state.content.action.prefix,
-                        ListType::Lines => &mut state.content.lines,
-                    };
-                    let message::ListEdit(index, msg) = msg;
-                    if index < list.len() || matches!(msg, message::LineEdit::Add) {
-                        match msg {
-                            message::LineEdit::Remove => {
-                                list.remove(index);
+        let (Some(Ok(state)), Some(status)) = (
+            self.state.get_mut(self.current),
+            self.status.get_mut(self.current),
+        ) else {
+            return;
+        };
+
+        match message {
+            Message::ToTab(n) => self.current = n,
+            Message::Choose(message) => {
+                *status = state.content.action.spawn(message);
+            }
+            Message::Edit(new_state) => {
+                state.edit = new_state;
+            }
+            Message::Save => *status = Self::save(state),
+            Message::Cancel => state.content = state.history.soft_reset(),
+            Message::Undo => state.content = state.history.undo(),
+            Message::Redo => state.content = state.history.redo(),
+            Message::EditMessage(list_type, msg) => {
+                let list = match list_type {
+                    ListType::Suffix => &mut state.content.action.suffix,
+                    ListType::Prefix => &mut state.content.action.prefix,
+                    ListType::Lines => &mut state.content.lines,
+                };
+                let message::ListEdit(index, msg) = msg;
+                if index < list.len() || matches!(msg, message::LineEdit::Add) {
+                    match msg {
+                        message::LineEdit::Remove => {
+                            list.remove(index);
+                            state.update_history();
+                        }
+                        message::LineEdit::Update(new) => list[index] = new,
+                        message::LineEdit::Up => {
+                            list.swap(index, index.saturating_sub(1));
+                            state.update_history();
+                        }
+                        message::LineEdit::Down => {
+                            if (index + 1) < list.len() {
+                                list.swap(index, index + 1);
                                 state.update_history();
                             }
-                            message::LineEdit::Update(new) => list[index] = new,
-                            message::LineEdit::Up => {
-                                list.swap(index, index.saturating_sub(1));
-                                state.update_history();
-                            }
-                            message::LineEdit::Down => {
-                                if (index + 1) < list.len() {
-                                    list.swap(index, index + 1);
-                                    state.update_history();
-                                }
-                            }
-                            message::LineEdit::Add => {
-                                list.insert(index, String::new());
-                                state.update_history();
-                            }
+                        }
+                        message::LineEdit::Add => {
+                            list.insert(index, String::new());
+                            state.update_history();
                         }
                     }
                 }
@@ -162,74 +233,40 @@ impl Sandbox for App {
     }
 
     fn view(&self) -> iced::Element<'_, Self::Message> {
-        let edit_active = self
-            .state
-            .as_ref()
-            .ok()
-            .map_or(false, |content| content.edit);
-
-        let min_button = |content| {
-            button(content)
-                .width(Length::Shrink)
-                .height(Length::Shrink)
-                .padding(2)
+        let Some(status) = self.status.get(self.current) else {
+            return text("status not correctly initialized, this is probably a programming error")
+                .into();
         };
-
-        let line_edit_button = |list_type, index, line_edit_msg, content| {
-            min_button(content).on_press(Message::EditMessage(
-                list_type,
-                message::ListEdit(index, line_edit_msg),
-            ))
+        let Some(state) = self.state.get(self.current) else {
+            return text("state not correctly initialized, this is probably a programming error")
+                .into();
         };
-
-        let add_button = |list_type, index| {
-            line_edit_button(list_type, index, message::LineEdit::Add, "add")
-                .style(theme::Button::Positive)
-        };
-
-        let line_entry = |list_type, index, elem: &str| {
-            Row::new()
-                .spacing(3)
-                .padding(0)
-                .height(Length::Shrink)
-                .width(Length::Shrink)
-                .align_items(Alignment::Center)
-                .push(
-                    line_edit_button(list_type, index, message::LineEdit::Remove, "del")
-                        .style(theme::Button::Destructive),
-                )
-                .push(add_button(list_type, index + 1))
-                .push(line_edit_button(
-                    list_type,
-                    index,
-                    message::LineEdit::Up,
-                    "up",
-                ))
-                .push(line_edit_button(
-                    list_type,
-                    index,
-                    message::LineEdit::Down,
-                    "down",
-                ))
-                .push(
-                    text_input("...", elem)
-                        .padding(2)
-                        .on_input(move |s| {
-                            Message::EditMessage(
-                                list_type,
-                                message::ListEdit(index, message::LineEdit::Update(s)),
-                            )
-                        })
-                        .width(Length::Fill),
-                )
-        };
+        let edit_active = state.as_ref().ok().map_or(false, |content| content.edit);
 
         Column::new()
+            .push_if(self.status.len() > 1, || {
+                self.state
+                    .iter()
+                    .enumerate()
+                    .fold(Row::new(), |row, (i, state)| {
+                        row.push(
+                            button(text(state.as_ref().map_or_else(
+                                |_err| String::from("err"),
+                                |state| state.file_path.display().to_string(),
+                            )))
+                            .style(theme::Button::Secondary)
+                            .on_press_maybe((self.current != i).then_some(Message::ToTab(i))),
+                        )
+                    })
+                    .padding(3)
+                    .spacing(3)
+            })
+            .push_if(self.status.len() > 1, || horizontal_rule(1))
             .push_if(edit_active, || {
                 Row::new().push(text("lines")).padding(3).spacing(3)
             })
             .push_if(edit_active, || horizontal_rule(1))
-            .push(match &self.state {
+            .push(match state {
                 Ok(State {
                     content: LineView { lines, .. },
                     ..
@@ -267,7 +304,7 @@ impl Sandbox for App {
                 Row::new().padding(3).spacing(3).push(text("command"))
             })
             .push_if(edit_active, || horizontal_rule(1))
-            .push_maybe(self.state.as_ref().ok().and_then(|state| {
+            .push_maybe(state.as_ref().ok().and_then(|state| {
                 state.edit.then(|| {
                     let col = Column::new()
                         .width(Length::Fill)
@@ -331,60 +368,71 @@ impl Sandbox for App {
                         .padding(Padding::new(2.0)),
                     )
                     .push_if(edit_active, || {
-                        button("save")
-                            .width(Length::Shrink)
+                        Row::new()
+                            .padding(0)
+                            .spacing(3)
+                            .align_items(Alignment::Center)
                             .height(Length::Shrink)
-                            .padding(Padding::new(2.0))
-                            .style(theme::Button::Positive)
-                            .on_press_maybe(self.state.as_ref().ok().and_then(|state| {
-                                (state.history.has_future() || state.history.has_past())
-                                    .then_some(Message::Save)
-                            }))
-                    })
-                    .push_if(edit_active, || {
-                        button("cancel")
                             .width(Length::Shrink)
-                            .height(Length::Shrink)
-                            .padding(Padding::new(2.0))
-                            .style(theme::Button::Destructive)
-                            .on_press_maybe(self.state.as_ref().ok().and_then(|state| {
-                                state.history.has_past().then_some(Message::Cancel)
-                            }))
-                    })
-                    .push_if(edit_active, || {
-                        button("undo")
-                            .width(Length::Shrink)
-                            .height(Length::Shrink)
-                            .padding(Padding::new(2.0))
-                            .style(theme::Button::Primary)
-                            .on_press_maybe(self.state.as_ref().ok().and_then(|content| {
-                                content.history.has_past().then_some(Message::Undo)
-                            }))
-                    })
-                    .push_if(edit_active, || {
-                        button("redo")
-                            .width(Length::Shrink)
-                            .height(Length::Shrink)
-                            .padding(Padding::new(2.0))
-                            .style(theme::Button::Primary)
-                            .on_press_maybe(self.state.as_ref().ok().and_then(|content| {
-                                content.history.has_future().then_some(Message::Redo)
-                            }))
-                    })
-                    .push_if(edit_active, || {
-                        line_edit_button(ListType::Lines, 0, message::LineEdit::Add, "add line")
-                            .style(theme::Button::Positive)
-                    })
-                    .push_if(edit_active, || {
-                        line_edit_button(ListType::Prefix, 0, message::LineEdit::Add, "add prefix")
-                            .style(theme::Button::Positive)
-                    })
-                    .push_if(edit_active, || {
-                        line_edit_button(ListType::Suffix, 0, message::LineEdit::Add, "add suffix")
-                            .style(theme::Button::Positive)
+                            .push({
+                                min_button("save")
+                                    .style(theme::Button::Positive)
+                                    .on_press_maybe(state.as_ref().ok().and_then(|state| {
+                                        (state.history.has_future() || state.history.has_past())
+                                            .then_some(Message::Save)
+                                    }))
+                            })
+                            .push({
+                                min_button("cancel")
+                                    .style(theme::Button::Destructive)
+                                    .on_press_maybe(state.as_ref().ok().and_then(|state| {
+                                        state.history.has_past().then_some(Message::Cancel)
+                                    }))
+                            })
+                            .push({
+                                min_button("undo")
+                                    .style(theme::Button::Primary)
+                                    .on_press_maybe(state.as_ref().ok().and_then(|content| {
+                                        content.history.has_past().then_some(Message::Undo)
+                                    }))
+                            })
+                            .push({
+                                min_button("redo")
+                                    .style(theme::Button::Primary)
+                                    .on_press_maybe(state.as_ref().ok().and_then(|content| {
+                                        content.history.has_future().then_some(Message::Redo)
+                                    }))
+                            })
+                            .push({
+                                line_edit_button(
+                                    ListType::Lines,
+                                    0,
+                                    message::LineEdit::Add,
+                                    "add line",
+                                )
+                                .style(theme::Button::Positive)
+                            })
+                            .push({
+                                line_edit_button(
+                                    ListType::Prefix,
+                                    0,
+                                    message::LineEdit::Add,
+                                    "add prefix",
+                                )
+                                .style(theme::Button::Positive)
+                            })
+                            .push({
+                                line_edit_button(
+                                    ListType::Suffix,
+                                    0,
+                                    message::LineEdit::Add,
+                                    "add suffix",
+                                )
+                                .style(theme::Button::Positive)
+                            })
                     })
                     .push(
-                        text(&self.status)
+                        text(status)
                             .pipe(container)
                             .width(Length::Fill)
                             .height(Length::Shrink)
