@@ -1,4 +1,4 @@
-use std::{fmt::Write, process::Command};
+use std::{fmt::Write, io, process::Command};
 
 #[derive(Default, Clone, Debug)]
 pub struct Action {
@@ -39,29 +39,53 @@ impl Action {
 
 #[derive(Clone, Default, Debug)]
 pub struct LineView {
+    pub title: Option<String>,
     pub lines: Vec<String>,
     pub action: Action,
 }
 
 impl LineView {
     pub fn parse(body: &str) -> Self {
-        let mut action = Action::default();
-        let mut lines = Vec::new();
+        let mut this = Self::default();
 
         for line in body.lines() {
             if let Some(line) = line.strip_prefix('#') {
                 if let Some(prefix) = line.strip_prefix("-pre ") {
-                    action.prefix.push(prefix.into());
+                    this.action.prefix.push(prefix.into());
                 } else if let Some(suffix) = line.strip_prefix("-suf ") {
-                    action.suffix.push(suffix.into())
+                    this.action.suffix.push(suffix.into())
+                } else if let Some(title) = line.strip_prefix("-title ") {
+                    this.title = Some(String::from(title));
                 }
             } else if !line.trim().is_empty() {
-                lines.push(line.into());
+                this.lines.push(line.into());
             } else {
-                lines.push(String::new());
+                this.lines.push(String::new());
             }
         }
 
-        Self { lines, action }
+        this
+    }
+
+    pub fn write(&self, mut writer: impl io::Write) -> io::Result<()> {
+        let Self {
+            lines,
+            action: Action { prefix, suffix },
+            title,
+        } = self;
+
+        if let Some(title) = title.as_ref() {
+            writeln!(writer, "#-title {}", title.trim())?;
+        }
+        for pre in prefix {
+            writeln!(writer, "#-pre {}", pre.trim())?;
+        }
+        for suf in suffix {
+            writeln!(writer, "#-suf {}", suf.trim())?;
+        }
+        for line in lines {
+            writeln!(writer, "{}", line.trim())?;
+        }
+        Ok(())
     }
 }
