@@ -234,12 +234,10 @@ impl Sandbox for App {
 
     fn view(&self) -> iced::Element<'_, Self::Message> {
         let Some(status) = self.status.get(self.current) else {
-            return text("status not correctly initialized, this is probably a programming error")
-                .into();
+            panic!("status not correctly initialized, this is probably a programming error");
         };
         let Some(state) = self.state.get(self.current) else {
-            return text("state not correctly initialized, this is probably a programming error")
-                .into();
+            panic!("state not correctly initialized, this is probably a programming error");
         };
         let edit_active = state.as_ref().map_or(false, |content| content.edit);
         let show_tabs = self.status.len() > 1
