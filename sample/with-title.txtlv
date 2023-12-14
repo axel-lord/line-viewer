@@ -1,0 +1,6 @@
+#!/usr/bin/env line-viewer
+#-pre xdg-open
+#-title Links
+https://github.com/axel-lord/line-viewer
+https://www.rust-lang.org/
+https://docs.rs/iced/latest/iced/

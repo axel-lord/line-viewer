@@ -157,7 +157,7 @@ impl Sandbox for App {
                     current: 0,
                 },
                 |cli| {
-                    let (state, status) = cli.file_path.into_iter().map(|file_path| {
+                    let (state, status): (Vec<_>, _) = cli.file_path.into_iter().map(|file_path| {
                         File::open(&file_path)
                             .context("failed to open file, does it exist and do you have the proper permissions?")
                             .and_then(|file| io::read_to_string(file).context("failed to read file to memory"))
@@ -170,9 +170,9 @@ impl Sandbox for App {
                             })
                     }).unzip();
                     Self {
+                        current: state.len().saturating_sub(1),
                         state,
                         status,
-                        current: 0,
                     }
                 },
             )
@@ -241,10 +241,14 @@ impl Sandbox for App {
             return text("state not correctly initialized, this is probably a programming error")
                 .into();
         };
-        let edit_active = state.as_ref().ok().map_or(false, |content| content.edit);
+        let edit_active = state.as_ref().map_or(false, |content| content.edit);
+        let show_tabs = self.status.len() > 1
+            || state
+                .as_ref()
+                .map_or(false, |state| state.content.title.is_some());
 
         Column::new()
-            .push_if(self.status.len() > 1, || {
+            .push_if(show_tabs, || {
                 self.state
                     .iter()
                     .enumerate()
@@ -252,7 +256,12 @@ impl Sandbox for App {
                         row.push(
                             button(text(state.as_ref().map_or_else(
                                 |_err| String::from("err"),
-                                |state| state.file_path.display().to_string(),
+                                |state| {
+                                    state.content.title.as_ref().map_or_else(
+                                        || state.file_path.display().to_string(),
+                                        String::clone,
+                                    )
+                                },
                             )))
                             .style(theme::Button::Secondary)
                             .on_press_maybe((self.current != i).then_some(Message::ToTab(i))),
@@ -261,7 +270,7 @@ impl Sandbox for App {
                     .padding(3)
                     .spacing(3)
             })
-            .push_if(self.status.len() > 1, || horizontal_rule(1))
+            .push_if(show_tabs, || horizontal_rule(1))
             .push_if(edit_active, || {
                 Row::new().push(text("lines")).padding(3).spacing(3)
             })
