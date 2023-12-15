@@ -8,7 +8,7 @@ pub mod state;
 
 use anyhow::Context;
 use clap::Parser;
-use extensions::ColRowExt;
+use extensions::{ColRowExt, TapIf};
 use history::History;
 use iced::{
     alignment::Horizontal,
@@ -229,6 +229,7 @@ impl Sandbox for App {
                     }
                 }
             }
+            Message::Title(title) => state.content.title = (!title.is_empty()).then_some(title),
         }
     }
 
@@ -269,6 +270,24 @@ impl Sandbox for App {
                     .spacing(3)
             })
             .push_if(show_tabs, || horizontal_rule(1))
+            .push_if(edit_active, || {
+                Row::new()
+                    .push(text("title"))
+                    .push(
+                        text_input(
+                            "...",
+                            &state
+                                .as_ref()
+                                .ok()
+                                .and_then(|s| s.content.title.clone())
+                                .unwrap_or_default(),
+                        )
+                        .tap_if(state.is_ok(), |ti| ti.on_input(Message::Title)),
+                    )
+                    .padding(3)
+                    .spacing(3)
+            })
+            .push_if(edit_active, || horizontal_rule(1))
             .push_if(edit_active, || {
                 Row::new().push(text("lines")).padding(3).spacing(3)
             })

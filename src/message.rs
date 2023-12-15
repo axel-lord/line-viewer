@@ -2,6 +2,7 @@
 pub enum Message {
     Choose(String),
     Edit(bool),
+    Title(String),
     Save,
     Cancel,
     Undo,
