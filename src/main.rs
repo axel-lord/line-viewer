@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 pub mod extensions;
+pub mod fwidget;
 pub mod history;
 pub mod line_view;
 pub mod message;
@@ -68,84 +69,6 @@ impl App {
             },
             ..Default::default()
         })
-    }
-}
-
-mod modname {
-    use iced::{
-        theme,
-        widget::{button, text_input, Button, Row},
-        Alignment, Element, Length,
-    };
-
-    use crate::message::{self, Message};
-
-    pub(crate) fn min_button<'a, M>(content: impl Into<Element<'a, M>>) -> Button<'a, M> {
-        button(content)
-            .width(Length::Shrink)
-            .height(Length::Shrink)
-            .padding(2)
-    }
-
-    pub(crate) fn line_edit_button<'a>(
-        list_type: message::ListType,
-        index: usize,
-        line_edit_msg: message::LineEdit,
-        content: impl Into<Element<'a, message::Message>>,
-    ) -> Button<'a, message::Message> {
-        min_button(content).on_press(Message::EditMessage(
-            list_type,
-            message::ListEdit(index, line_edit_msg),
-        ))
-    }
-
-    pub(crate) fn add_button<'a>(
-        list_type: message::ListType,
-        index: usize,
-    ) -> Button<'a, message::Message> {
-        line_edit_button(list_type, index, message::LineEdit::Add, "add")
-            .style(theme::Button::Positive)
-    }
-
-    pub(crate) fn line_entry<'a>(
-        list_type: message::ListType,
-        index: usize,
-        elem: &str,
-    ) -> Row<'a, message::Message> {
-        Row::new()
-            .spacing(3)
-            .padding(0)
-            .height(Length::Shrink)
-            .width(Length::Shrink)
-            .align_items(Alignment::Center)
-            .push(
-                line_edit_button(list_type, index, message::LineEdit::Remove, "del")
-                    .style(theme::Button::Destructive),
-            )
-            .push(add_button(list_type, index + 1))
-            .push(line_edit_button(
-                list_type,
-                index,
-                message::LineEdit::Up,
-                "up",
-            ))
-            .push(line_edit_button(
-                list_type,
-                index,
-                message::LineEdit::Down,
-                "down",
-            ))
-            .push(
-                text_input("...", elem)
-                    .padding(2)
-                    .on_input(move |s| {
-                        Message::EditMessage(
-                            list_type,
-                            message::ListEdit(index, message::LineEdit::Update(s)),
-                        )
-                    })
-                    .width(Length::Fill),
-            )
     }
 }
 
@@ -342,7 +265,7 @@ impl Sandbox for App {
                                 .padding(0)
                         })
                         .push_if(edit_active, || {
-                            modname::line_entry(ListType::Lines, i, line)
+                            fwidget::line_entry(ListType::Lines, i, line)
                         })
                     })
                     .spacing(3)
@@ -382,7 +305,7 @@ impl Sandbox for App {
                         .iter()
                         .enumerate()
                         .fold(col, |col, (i, pre)| {
-                            col.push(modname::line_entry(ListType::Prefix, i, pre))
+                            col.push(fwidget::line_entry(ListType::Prefix, i, pre))
                         });
 
                     let col = col.push(
@@ -400,7 +323,7 @@ impl Sandbox for App {
                         .iter()
                         .enumerate()
                         .fold(col, |col, (i, suf)| {
-                            col.push(modname::line_entry(ListType::Suffix, i, suf))
+                            col.push(fwidget::line_entry(ListType::Suffix, i, suf))
                         });
 
                     col
@@ -438,7 +361,7 @@ impl Sandbox for App {
                             .height(Length::Shrink)
                             .width(Length::Shrink)
                             .push({
-                                modname::min_button("save")
+                                fwidget::min_button("save")
                                     .style(theme::Button::Positive)
                                     .on_press_maybe(state.as_ref().ok().and_then(|state| {
                                         (state.history.has_future() || state.history.has_past())
@@ -446,28 +369,28 @@ impl Sandbox for App {
                                     }))
                             })
                             .push({
-                                modname::min_button("cancel")
+                                fwidget::min_button("cancel")
                                     .style(theme::Button::Destructive)
                                     .on_press_maybe(state.as_ref().ok().and_then(|state| {
                                         state.history.has_past().then_some(Message::Cancel)
                                     }))
                             })
                             .push({
-                                modname::min_button("undo")
+                                fwidget::min_button("undo")
                                     .style(theme::Button::Primary)
                                     .on_press_maybe(state.as_ref().ok().and_then(|content| {
                                         content.history.has_past().then_some(Message::Undo)
                                     }))
                             })
                             .push({
-                                modname::min_button("redo")
+                                fwidget::min_button("redo")
                                     .style(theme::Button::Primary)
                                     .on_press_maybe(state.as_ref().ok().and_then(|content| {
                                         content.history.has_future().then_some(Message::Redo)
                                     }))
                             })
                             .push({
-                                modname::line_edit_button(
+                                fwidget::line_edit_button(
                                     ListType::Lines,
                                     0,
                                     message::LineEdit::Add,
@@ -476,7 +399,7 @@ impl Sandbox for App {
                                 .style(theme::Button::Positive)
                             })
                             .push({
-                                modname::line_edit_button(
+                                fwidget::line_edit_button(
                                     ListType::Prefix,
                                     0,
                                     message::LineEdit::Add,
@@ -485,7 +408,7 @@ impl Sandbox for App {
                                 .style(theme::Button::Positive)
                             })
                             .push({
-                                modname::line_edit_button(
+                                fwidget::line_edit_button(
                                     ListType::Suffix,
                                     0,
                                     message::LineEdit::Add,
