@@ -9,6 +9,8 @@ use resvg::{
 use winres::WindowsResource;
 
 fn main() {
+    slint_build::compile("ui/appwindow.slint").unwrap();
+
     println!("cargo:rerun-if-changed=./assets/icon.svg");
 
     let image = fs::read_to_string("./assets/icon.svg").expect("file should exist");

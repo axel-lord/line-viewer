@@ -1,22 +1,23 @@
 [package]
 name = "line-viewer"
-version = "1.0.0"
-edition = "2021"
+version = "2.0.0"
 authors = ["Axel Lord"]
+edition = "2021"
 license = "MIT"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = "1.0.75"
 clap = { version = "4.4.0", features = ["derive"] }
-edit = "0.1.4"
-iced = { version = "0.10.0", features = ["image", "svg"] }
+slint = "1.3"
 tap = "1.0.1"
 
 [build-dependencies]
 resvg = "0.35.0"
+slint-build = "1.3"
 
 [target.'cfg(windows)'.build-dependencies]
-winres = "0.1"
 ico = "0.3"
+winres = "0.1"
