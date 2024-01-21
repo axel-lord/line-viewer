@@ -1,17 +1,17 @@
-import { Button, VerticalBox } from "std-widgets.slint";
+import { Button, VerticalBox, ListView, TabWidget } from "std-widgets.slint";
 
 export component AppWindow inherits Window {
-    in-out property<int> counter: 42;
-    callback request-increase-value();
-    VerticalBox {
-        Text {
-            text: "Counter: \{root.counter}";
-        }
-        Button {
-            text: "Increase value";
-            clicked => {
-                root.request-increase-value();
-            }
-        }
-    }
+	in-out property<[string]> lines: [];
+
+	callback line-clicked(int);
+	ListView {
+		for line[i] in lines : Text {
+			text: line;
+			if line != "" : TouchArea {
+				clicked => {
+					root.line-clicked(i);
+				}
+			}
+		}
+	}
 }

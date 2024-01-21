@@ -2353,10 +2353,12 @@ dependencies = [
  "anyhow",
  "clap",
  "ico",
+ "rayon",
  "resvg 0.35.0",
  "slint",
  "slint-build",
  "tap",
+ "thiserror",
  "winres",
 ]
 
