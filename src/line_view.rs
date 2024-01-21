@@ -15,6 +15,7 @@ use crate::Result;
 #[derive(Debug, Clone, Default)]
 pub struct LineView {
     source: PathBuf,
+    included: rustc_hash::FxHashSet<Arc<Path>>,
     title: String,
     lines: Vec<Line>,
     cmd: Cmd,
@@ -140,10 +141,17 @@ impl LineView {
 
         Ok(Self {
             source: path.to_path_buf(),
+            included,
             lines,
             title,
             cmd,
         })
+    }
+
+    pub fn reload(&mut self) -> Result {
+        let new = Self::read(self.source())?;
+        *self = new;
+        Ok(())
     }
 
     pub fn title(&self) -> &str {
@@ -156,6 +164,10 @@ impl LineView {
 
     pub fn source(&self) -> &Path {
         &self.source
+    }
+
+    pub fn all_sources(&self) -> impl Iterator<Item = &Path> {
+        self.included.iter().map(|i| i.as_ref())
     }
 
     pub fn get(&self, index: usize) -> Option<Handle> {
