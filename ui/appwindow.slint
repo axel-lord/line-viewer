@@ -1,13 +1,35 @@
-import { Button, VerticalBox, ListView, TabWidget } from "std-widgets.slint";
+import { Button, VerticalBox, ListView } from "std-widgets.slint";
+
+component ViewLine inherits Text {
+	in property <int> name;
+
+	callback clicked();
+
+	font-weight: area.has-hover ? 600 : 400;
+
+	area := TouchArea {
+		mouse-cursor: root.text != "" ? MouseCursor.pointer : MouseCursor.default;
+		clicked => {
+			if (root.text != "") {
+				root.clicked();
+			}
+		}
+	}
+}
 
 export component AppWindow inherits Window {
-	in-out property<[string]> lines: [];
+	in property<[string]> lines: [];
+	in property<string> view-title;
 
 	callback line-clicked(int);
-	ListView {
-		for line[i] in lines : Text {
-			text: line;
-			if line != "" : TouchArea {
+
+	VerticalBox {
+		Text {
+			text: view-title;
+		}
+		ListView {
+			for line[i] in lines : ViewLine {
+				text: line;
 				clicked => {
 					root.line-clicked(i);
 				}

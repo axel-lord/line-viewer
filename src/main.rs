@@ -5,44 +5,38 @@ use std::{path::PathBuf, rc::Rc};
 use anyhow::Result;
 use clap::Parser;
 use line_viewer::LineView;
-use slint::{SharedString, VecModel};
+use slint::{ModelRc, SharedString, VecModel};
+use tap::Pipe;
 
 #[derive(Parser)]
 struct Cli {
-    #[arg(required = true)]
-    file_path: Vec<PathBuf>,
+    file_path: PathBuf,
+}
+
+fn vec_to_model_rc<T>(v: Vec<T>) -> ModelRc<T> where T: Clone + 'static {
+    VecModel::from(v).pipe(Rc::new).pipe(ModelRc::from)
 }
 
 fn main() -> Result<()> {
     let cli = Cli::try_parse()?;
-
-    let views = cli
-        .file_path
-        .into_iter()
-        .map(|path| LineView::read(&path))
-        .collect::<Rc<[_]>>();
+    let view = LineView::read(&cli.file_path)?.pipe(Rc::new);
+    let lines = view
+        .lines()
+        .map(SharedString::from)
+        .collect::<Vec<_>>()
+        .pipe(vec_to_model_rc);
 
     let ui = AppWindow::new()?;
 
-    ui.set_lines(
-        Rc::new(VecModel::from(
-            views[0]
-                .as_ref()
-                .unwrap()
-                .lines()
-                .map(SharedString::from)
-                .collect::<Vec<_>>(),
-        ))
-        .into(),
-    );
+    ui.set_lines(lines);
+    ui.set_view_title(SharedString::from(view.title()));
 
     ui.on_line_clicked({
-        let views_handle = Rc::downgrade(&views);
+        let view_handle = Rc::downgrade(&view);
         move |index: i32| {
-            let views = views_handle.upgrade().unwrap();
-            if let Ok(view) = &views[0] {
-                let _ = view.get(index.try_into().unwrap()).unwrap().execute();
-            }
+            let index: usize = index.try_into().unwrap();
+            let view = view_handle.upgrade().unwrap();
+            let _ = view.get(index).unwrap().execute();
         }
     });
 

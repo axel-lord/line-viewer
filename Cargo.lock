@@ -2355,6 +2355,7 @@ dependencies = [
  "ico",
  "rayon",
  "resvg 0.35.0",
+ "rustc-hash",
  "slint",
  "slint-build",
  "tap",

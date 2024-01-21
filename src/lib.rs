@@ -1,7 +1,9 @@
-mod line_view;
 mod error;
+mod line_view;
 
-pub use line_view::{LineView, Cmd as Cmd, Handle as LineHandle};
-pub use error::Error;
+pub use self::{
+    error::Error,
+    line_view::{cmd::Cmd, handle::Handle as LineHandle, LineView},
+};
 
 pub type Result<T = ()> = std::result::Result<T, Error>;
