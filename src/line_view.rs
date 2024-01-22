@@ -1,10 +1,10 @@
-pub mod cmd;
-pub mod handle;
-pub mod line;
+pub(crate) mod cmd;
+pub(crate) mod handle;
+pub(crate) mod line;
 
 use std::{
     fs::File,
-    io::{BufRead, BufReader, Write},
+    io::{BufRead, BufReader},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -77,7 +77,7 @@ impl LineView {
             line.truncate(line.trim_end().len());
 
             // Line not a comment
-            if !line.starts_with("#") {
+            if !line.starts_with('#') {
                 lines.push(Line::new(line, Arc::clone(path)));
                 continue;
             }
@@ -103,7 +103,7 @@ impl LineView {
                     } else {
                         // print error and continue without include if home does not exist
                         let Some(home_dir) = home::home_dir() else {
-                            _ = writeln!(std::io::stderr(), "could not find user home");
+                            eprintln!("could not find user home");
                             continue;
                         };
                         home_dir.join(line)
@@ -113,10 +113,10 @@ impl LineView {
                 };
                 dbg!(&line);
                 if !line.exists() {
-                    _ = writeln!(std::io::stderr(), "could not find include {}", line.display());
+                    eprintln!("could not find include {}", line.display());
                     continue;
                 }
-                let new_source = canonicalize_at(&dir, &line).and_then(|path| {
+                let new_source = canonicalize_at(dir, &line).and_then(|path| {
                     Ok(Source {
                         read: BufReader::new(File::open(&path)?),
                         dir: {

@@ -25,3 +25,13 @@ slint-build = "1.3"
 [target.'cfg(windows)'.build-dependencies]
 ico = "0.3"
 winres = "0.1"
+
+[lints.rust]
+let_underscore = "warn"
+future_incompatible = "warn"
+nonstandard_style = "warn"
+missing_copy_implementations = "warn"
+missing_debug_implementations = "warn"
+
+[lints.clippy]
+all = "warn"

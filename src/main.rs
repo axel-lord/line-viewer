@@ -1,3 +1,5 @@
+#![allow(missing_debug_implementations)]
+
 slint::include_modules!();
 
 use std::{
@@ -56,7 +58,7 @@ fn create_watcher(
     })?;
 
     for source in view.all_sources() {
-        let _ = watcher.watch(source, notify::RecursiveMode::NonRecursive);
+        drop(watcher.watch(source, notify::RecursiveMode::NonRecursive));
     }
 
     Ok(watcher)
@@ -84,7 +86,7 @@ fn main() -> Result<()> {
             let index: usize = index.try_into().unwrap();
             let view = view_handle.upgrade().unwrap();
             if let Ok(view) = view.read() {
-                let _ = view.get(index).unwrap().execute();
+                drop(view.get(index).unwrap().execute());
             };
         }
     });

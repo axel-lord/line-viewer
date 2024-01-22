@@ -11,10 +11,10 @@ impl Line {
         Self { text, source }
     }
 
-    pub fn source(&self) -> &Path {
+    pub(crate) fn source(&self) -> &Path {
         &self.source
     }
-    pub fn text(&self) -> &str {
+    pub(crate) fn text(&self) -> &str {
         &self.text
     }
 }
