@@ -4,7 +4,7 @@ pub mod line;
 
 use std::{
     fs::File,
-    io::{BufRead, BufReader},
+    io::{BufRead, BufReader, Write},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -96,7 +96,27 @@ impl LineView {
             }
 
             if let Some(line) = get_cmd!(line, "include") {
-                let new_source = canonicalize_at(&dir, line.as_ref()).and_then(|path| {
+                const HOME_PREFIX: &str = "~/";
+                let line = if let Some(line) = line.strip_prefix(HOME_PREFIX) {
+                    if line.starts_with(HOME_PREFIX) {
+                        PathBuf::from(line)
+                    } else {
+                        // print error and continue without include if home does not exist
+                        let Some(home_dir) = home::home_dir() else {
+                            _ = writeln!(std::io::stderr(), "could not find user home");
+                            continue;
+                        };
+                        home_dir.join(line)
+                    }
+                } else {
+                    PathBuf::from(line)
+                };
+                dbg!(&line);
+                if !line.exists() {
+                    _ = writeln!(std::io::stderr(), "could not find include {}", line.display());
+                    continue;
+                }
+                let new_source = canonicalize_at(&dir, &line).and_then(|path| {
                     Ok(Source {
                         read: BufReader::new(File::open(&path)?),
                         dir: {

@@ -11,6 +11,7 @@ build = "build.rs"
 [dependencies]
 anyhow = "1.0.75"
 clap = { version = "4.4.0", features = ["derive"] }
+home = "0.5.9"
 notify = "6.1.1"
 rustc-hash = "1.1.0"
 slint = "1.3"
