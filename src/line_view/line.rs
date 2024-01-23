@@ -1,20 +1,27 @@
-use std::{path::Path, sync::Arc};
+use std::{path::Path, sync::{Arc, RwLock}};
+
+use crate::{line_view::cmd::Cmd, Result};
 
 #[derive(Debug, Clone)]
-pub(crate) struct Line {
+pub struct Line {
     text: String,
     source: Arc<Path>,
+    cmd: Arc<RwLock<Cmd>>,
 }
 
 impl Line {
-    pub(crate) fn new(text: String, source: Arc<Path>) -> Self {
-        Self { text, source }
+    pub fn new(text: String, source: Arc<Path>, cmd: Arc<RwLock<Cmd>>) -> Self {
+        Self { text, source, cmd}
     }
 
-    pub(crate) fn source(&self) -> &Path {
+    pub fn source(&self) -> &Path {
         &self.source
     }
-    pub(crate) fn text(&self) -> &str {
+    pub fn text(&self) -> &str {
         &self.text
+    }
+
+    pub fn execute(&self) -> Result {
+        self.cmd.read().unwrap().execute([self.text()])
     }
 }

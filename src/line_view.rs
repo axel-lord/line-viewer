@@ -1,15 +1,14 @@
 pub(crate) mod cmd;
-pub(crate) mod handle;
 pub(crate) mod line;
 
 use std::{
     fs::File,
     io::{BufRead, BufReader},
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, RwLock},
 };
 
-use self::{cmd::Cmd, handle::Handle, line::Line};
+use self::{cmd::Cmd, line::Line};
 use crate::Result;
 
 #[derive(Debug, Clone, Default)]
@@ -18,7 +17,6 @@ pub struct LineView {
     included: rustc_hash::FxHashSet<Arc<Path>>,
     title: String,
     lines: Vec<Line>,
-    cmd: Cmd,
 }
 
 fn canonicalize_at(dest: &Path, path: &Path) -> Result<PathBuf> {
@@ -33,42 +31,61 @@ fn canonicalize_at(dest: &Path, path: &Path) -> Result<PathBuf> {
     r
 }
 
+#[derive(Debug)]
+struct Source {
+    read: BufReader<File>,
+    path: Arc<Path>,
+    cmd: Arc<RwLock<Cmd>>,
+    dir: PathBuf,
+    is_root: bool,
+}
+impl Source {
+    fn new(path: PathBuf) -> Result<Self> {
+        Ok(Self {
+            read: BufReader::new(File::open(&path)?),
+            path: path.as_path().into(),
+            dir: {
+                let mut dir = path;
+                dir.pop();
+                dir
+            },
+            cmd: Default::default(),
+            is_root: false,
+        })
+    }
+
+    fn root(path: PathBuf) -> Result<Self> {
+        Ok(Self {
+            is_root: true,
+            ..Self::new(path)?
+        })
+    }
+}
+
 impl LineView {
     pub fn read(path: &Path) -> Result<Self> {
         // clean path
         let path = path.canonicalize()?;
 
         // setup stack, and source set
-        struct Source {
-            read: BufReader<File>,
-            path: Arc<Path>,
-            dir: PathBuf,
-        }
         let mut sources = Vec::new();
         let mut included = rustc_hash::FxHashSet::default();
 
         let mut lines = Vec::new();
-        let mut title = String::new();
-        let mut cmd = Cmd::new();
+        let mut title = path.display().to_string();
 
-        // push path as first source
+        let root = Source::root(path.to_path_buf())?;
+        included.insert(Arc::clone(&root.path));
+        sources.push(root);
+
+        while let Some(Source {
+            read,
+            path,
+            dir,
+            cmd,
+            is_root,
+        }) = sources.last_mut()
         {
-            let path: Arc<Path> = path.as_path().into();
-            let dir = {
-                let mut dir = path.to_path_buf();
-                dir.pop();
-                dir
-            };
-
-            included.insert(Arc::clone(&path));
-            sources.push(Source {
-                read: BufReader::new(File::open(&path)?),
-                dir,
-                path,
-            });
-        }
-
-        while let Some(Source { read, path, dir }) = sources.last_mut() {
             let mut line = String::new();
             if read.read_line(&mut line)? == 0 {
                 sources.pop();
@@ -78,7 +95,7 @@ impl LineView {
 
             // Line not a comment
             if !line.starts_with('#') {
-                lines.push(Line::new(line, Arc::clone(path)));
+                lines.push(Line::new(line, Arc::clone(path), Arc::clone(cmd)));
                 continue;
             }
 
@@ -97,59 +114,68 @@ impl LineView {
 
             if let Some(line) = get_cmd!(line, "include") {
                 const HOME_PREFIX: &str = "~/";
-                let line = if let Some(line) = line.strip_prefix(HOME_PREFIX) {
-                    if line.starts_with(HOME_PREFIX) {
-                        PathBuf::from(line)
-                    } else {
-                        // print error and continue without include if home does not exist
+
+                let line = match line.strip_prefix(HOME_PREFIX) {
+                    Some(line) if line.starts_with(HOME_PREFIX) => PathBuf::from(line),
+                    Some(line) => {
                         let Some(home_dir) = home::home_dir() else {
                             eprintln!("could not find user home");
                             continue;
                         };
                         home_dir.join(line)
                     }
-                } else {
-                    PathBuf::from(line)
+                    None => PathBuf::from(line),
                 };
-                dbg!(&line);
-                if !line.exists() {
+
+                let path = match canonicalize_at(dir, &line) {
+                    Ok(line) => line,
+                    Err(err) => {
+                        eprintln!("could not canonicalize path, {}, {err}", line.display());
+                        continue;
+                    }
+                };
+
+                if !path.exists() {
+                    // non canonicalized is uded when printing
                     eprintln!("could not find include {}", line.display());
                     continue;
                 }
-                let new_source = canonicalize_at(dir, &line).and_then(|path| {
-                    Ok(Source {
-                        read: BufReader::new(File::open(&path)?),
-                        dir: {
-                            let mut dir = path.clone();
-                            dir.pop();
-                            dir
-                        },
-                        path: path.into(),
-                    })
-                });
-                if let Ok(source) = new_source {
-                    if !included.contains(&source.path) {
-                        included.insert(Arc::clone(&source.path));
-                        sources.push(source);
+
+                let source = match Source::new(path) {
+                    Ok(source) => source,
+                    Err(err) => {
+                        eprintln!("could not create source, {err}");
+                        continue;
                     }
+                };
+
+                // no warnings needed
+                if included.contains(&source.path) {
+                    continue;
                 }
+
+                included.insert(Arc::clone(&source.path));
+                sources.push(source);
+
+                continue;
+            }
+
+            let mut cmd = cmd.write().unwrap();
+
+            if let Some(line) = get_cmd!(line, "pre") {
+                cmd.pre(line);
+                continue;
+            }
+
+            if let Some(line) = get_cmd!(line, "suf") {
+                cmd.suf(line);
                 continue;
             }
 
             // only for root view
-            if sources.len() == 1 {
+            if *is_root {
                 if let Some(line) = get_cmd!(line, "title") {
                     title = String::from(line);
-                    continue;
-                }
-
-                if let Some(line) = get_cmd!(line, "pre") {
-                    cmd.pre(line);
-                    continue;
-                }
-
-                if let Some(line) = get_cmd!(line, "suf") {
-                    cmd.suf(line);
                     continue;
                 }
             }
@@ -164,7 +190,6 @@ impl LineView {
             included,
             lines,
             title,
-            cmd,
         })
     }
 
@@ -190,7 +215,7 @@ impl LineView {
         self.included.iter().map(|i| i.as_ref())
     }
 
-    pub fn get(&self, index: usize) -> Option<Handle> {
-        Some(Handle::new(&self.cmd, self.lines.get(index)?))
+    pub fn get(&self, index: usize) -> Option<&Line> {
+        self.lines.get(index)
     }
 }

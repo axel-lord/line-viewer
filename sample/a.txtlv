@@ -1,0 +1,7 @@
+#-title A
+#-pre printf
+#-pre A: %s\n
+
+https://github.com/axel-lord/line-viewer
+https://www.rust-lang.org/
+https://slint.dev/releases/1.3.2/docs/slint/

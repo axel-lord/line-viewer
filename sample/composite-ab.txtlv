@@ -1,0 +1,4 @@
+#-title A + B
+#-include a.txtlv
+
+#-include b.txtlv
