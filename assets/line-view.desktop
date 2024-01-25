@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Version=0.1
+Name=Line Viewer
+Comment=Display text file content in lines
+Exec=/home/axel/.local/share/cargo/bin/line-viewer
+MimeType=application/x-lineview

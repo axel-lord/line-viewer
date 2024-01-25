@@ -771,6 +771,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8191fa7302e03607ff0e237d4246cc043ff5b3cb9409d995172ba3bea16b807"
 
 [[package]]
+name = "cmake"
+version = "0.1.50"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a31c789563b815f77f4250caee12365734369f942439b7defd71e18a48197130"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "cocoa"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2412,6 +2421,7 @@ dependencies = [
  "clap",
  "home",
  "ico",
+ "nfde",
  "notify",
  "resvg 0.35.0",
  "rustc-hash",
@@ -2643,6 +2653,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c196769dd60fd4f363e11d948139556a344e79d451aeb2fa2fd040738ef7691"
 dependencies = [
  "jni-sys",
+]
+
+[[package]]
+name = "nfde"
+version = "0.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96869d5587861a8c98eb0118644fd4ea13ae68f3748a084536881bfa9d64130f"
+dependencies = [
+ "cmake",
+ "pkg-config",
+ "widestring",
 ]
 
 [[package]]
@@ -4628,6 +4649,12 @@ dependencies = [
  "once_cell",
  "rustix 0.38.30",
 ]
+
+[[package]]
+name = "widestring"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "653f141f39ec16bba3c5abe400a0c60da7468261cc2cbf36805022876bc721a8"
 
 [[package]]
 name = "winapi"

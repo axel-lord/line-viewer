@@ -3,21 +3,36 @@
 slint::include_modules!();
 
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     rc::Rc,
     sync::{atomic::AtomicUsize, Arc, Mutex, RwLock, Weak},
 };
 
-use anyhow::Result;
-use clap::Parser;
+use anyhow::{anyhow, Result};
+use clap::{Parser, ArgGroup};
 use line_viewer::LineView;
 use notify::{Event, EventKind, Watcher};
 use slint::{ModelRc, SharedString, VecModel};
 use tap::Pipe;
 
 #[derive(Parser)]
+#[clap(author, version)]
+#[clap(group(
+        ArgGroup::new("input")
+        .required(true)
+        .args(&["mime_type", "application", "file_path"])
+        ))]
 struct Cli {
-    file_path: PathBuf,
+    #[clap(short, long)]
+    /// Output xdg mimetype xml
+    mime_type: bool,
+
+    #[clap(short, long)]
+    /// Output xdg .desktop file
+    application: bool,
+
+    /// File to open and view
+    file_path: Option<PathBuf>,
 }
 
 fn vec_to_model_rc<T>(v: Vec<T>) -> ModelRc<T>
@@ -64,9 +79,8 @@ fn create_watcher(
     Ok(watcher)
 }
 
-fn main() -> Result<()> {
-    let cli = Cli::try_parse()?;
-    let view = LineView::read(&cli.file_path)?;
+fn run(file_path: &Path) -> Result<()> {
+    let view = LineView::read(file_path)?;
 
     let ui = AppWindow::new()?;
     let lock = Arc::new(Mutex::new(false));
@@ -140,7 +154,45 @@ fn main() -> Result<()> {
         },
     );
 
-    ui.run()?;
+    ui.run().map_err(anyhow::Error::from)
+}
 
-    Ok(())
+fn file_dialog() -> Result<PathBuf> {
+    use nfde::{DialogResult, FilterableDialogBuilder, Nfd, NfdPathBuf, SingleFileDialogBuilder};
+
+    fn show_dialog() -> Result<DialogResult<NfdPathBuf>, nfde::Error> {
+        Ok(Nfd::new()?
+            .open_file()
+            .add_filter("line-view File", "txtlv")?
+            .add_filter("Text File", "txt")?
+            .show())
+    }
+
+    fn convert_result(res: Result<DialogResult<NfdPathBuf>, nfde::Error>) -> Result<PathBuf> {
+        let res = res.map_err(|err| anyhow!(err))?;
+        match res {
+            DialogResult::Ok(path) => Ok(path.to_path_buf()),
+            DialogResult::Cancel => Err(anyhow!("no file chosen")),
+            DialogResult::Err(err) => Err(anyhow!(err)),
+        }
+    }
+
+    convert_result(show_dialog())
+}
+fn main() -> Result<()> {
+    let cli = Cli::parse();
+
+    if cli.mime_type {
+        print!(include_str!("../assets/application-x-lineview.xml"));
+        return Ok(());
+    }
+
+    if cli.application {
+        print!(include_str!("../assets/line-view.desktop"));
+        return Ok(());
+    }
+
+    let file_path = cli.file_path.map_or_else(file_dialog, Ok)?;
+
+    run(&file_path)
 }
