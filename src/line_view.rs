@@ -1,65 +1,28 @@
 pub(crate) mod cmd;
 pub(crate) mod line;
 
+mod include;
+mod source;
+
+use std::sync::Arc;
 use std::{
-    fs::File,
-    io::{BufRead, BufReader},
+    io::BufRead,
     path::{Path, PathBuf},
-    sync::{Arc, RwLock},
 };
 
-use self::{cmd::Cmd, line::Line};
+use rustc_hash::FxHashSet;
+
+use self::{cmd::Cmd, line::Line, source::Source};
 use crate::Result;
+
+type PathSet = FxHashSet<Arc<Path>>;
 
 #[derive(Debug, Clone, Default)]
 pub struct LineView {
     source: PathBuf,
-    included: rustc_hash::FxHashSet<Arc<Path>>,
+    included: PathSet,
     title: String,
     lines: Vec<Line>,
-}
-
-fn canonicalize_at(dest: &Path, path: &Path) -> Result<PathBuf> {
-    fn internal(dest: &Path, path: &Path) -> Result<PathBuf> {
-        std::env::set_current_dir(dest)?;
-        Ok(path.canonicalize()?)
-    }
-
-    let s = std::env::current_dir()?;
-    let r = internal(dest, path);
-    std::env::set_current_dir(s)?;
-    r
-}
-
-#[derive(Debug)]
-struct Source {
-    read: BufReader<File>,
-    path: Arc<Path>,
-    cmd: Arc<RwLock<Cmd>>,
-    dir: PathBuf,
-    is_root: bool,
-}
-impl Source {
-    fn new(path: PathBuf) -> Result<Self> {
-        Ok(Self {
-            read: BufReader::new(File::open(&path)?),
-            path: path.as_path().into(),
-            dir: {
-                let mut dir = path;
-                dir.pop();
-                dir
-            },
-            cmd: Default::default(),
-            is_root: false,
-        })
-    }
-
-    fn root(path: PathBuf) -> Result<Self> {
-        Ok(Self {
-            is_root: true,
-            ..Self::new(path)?
-        })
-    }
 }
 
 impl LineView {
@@ -69,12 +32,15 @@ impl LineView {
 
         // setup stack, and source set
         let mut sources = Vec::new();
-        let mut included = rustc_hash::FxHashSet::default();
+        let mut included = FxHashSet::default();
 
         let mut lines = Vec::new();
         let mut title = path.display().to_string();
 
-        let root = Source::root(path.to_path_buf())?;
+        let root = Source {
+            is_root: true,
+            ..Source::new(path.to_path_buf())?
+        };
         included.insert(Arc::clone(&root.path));
         sources.push(root);
 
@@ -84,17 +50,21 @@ impl LineView {
             dir,
             cmd,
             is_root,
+            sourced,
+            skip_directives,
         }) = sources.last_mut()
         {
             let mut line = String::new();
+
+            // pop current layer of stack if averything is read
             if read.read_line(&mut line)? == 0 {
                 sources.pop();
                 continue;
             }
             line.truncate(line.trim_end().len());
 
-            // Line not a comment
-            if !line.starts_with('#') {
+            // Line not a comment or skip directives active
+            if *skip_directives || !line.starts_with('#') {
                 lines.push(Line::new(line, Arc::clone(path), Arc::clone(cmd)));
                 continue;
             }
@@ -106,6 +76,7 @@ impl LineView {
 
             let line = line[2..].trim();
 
+            // convenience macro (as of now directives not followed by a space are not allowed)
             macro_rules! get_cmd {
                 ($name:expr, $prefix:literal) => {
                     $name.strip_prefix(concat!($prefix, " ")).map(|s| s.trim())
@@ -113,70 +84,25 @@ impl LineView {
             }
 
             if let Some(line) = get_cmd!(line, "include") {
-                const HOME_PREFIX: &str = "~/";
-
-                let line = match line.strip_prefix(HOME_PREFIX) {
-                    Some(line) if line.starts_with(HOME_PREFIX) => PathBuf::from(line),
-                    Some(line) => {
-                        let Some(home_dir) = home::home_dir() else {
-                            eprintln!("could not find user home");
-                            continue;
-                        };
-                        home_dir.join(line)
-                    }
-                    None => PathBuf::from(line),
-                };
-
-                let path = match canonicalize_at(dir, &line) {
-                    Ok(line) => line,
-                    Err(err) => {
-                        eprintln!("could not canonicalize path, {}, {err}", line.display());
-                        continue;
-                    }
-                };
-
-                if !path.exists() {
-                    // non canonicalized is uded when printing
-                    eprintln!("could not find include {}", line.display());
-                    continue;
+                if let Some(source) = include::include(line, dir, &mut included) {
+                    sources.push(source);
                 }
-
-                let source = match Source::new(path) {
-                    Ok(source) => source,
-                    Err(err) => {
-                        eprintln!("could not create source, {err}");
-                        continue;
-                    }
-                };
-
-                // no warnings needed
-                if included.contains(&source.path) {
-                    continue;
+            } else if let Some(line) = get_cmd!(line, "source") {
+                if let Some(source) = include::source(line, dir, cmd, sourced) {
+                    sources.push(source)
                 }
-
-                included.insert(Arc::clone(&source.path));
-                sources.push(source);
-
-                continue;
-            }
-
-            let mut cmd = cmd.write().unwrap();
-
-            if let Some(line) = get_cmd!(line, "pre") {
-                cmd.pre(line);
-                continue;
-            }
-
-            if let Some(line) = get_cmd!(line, "suf") {
-                cmd.suf(line);
-                continue;
-            }
-
-            // only for root view
-            if *is_root {
-                if let Some(line) = get_cmd!(line, "title") {
+            } else if let Some(line) = get_cmd!(line, "lines") {
+                if let Some(source) = include::lines(line, dir, cmd) {
+                    sources.push(source)
+                }
+            } else if let Some(line) = get_cmd!(line, "pre") {
+                cmd.write().unwrap().pre(line);
+            } else if let Some(line) = get_cmd!(line, "suf") {
+                cmd.write().unwrap().suf(line);
+            } else if let Some(line) = get_cmd!(line, "title") {
+                // only root may change title
+                if *is_root {
                     title = String::from(line);
-                    continue;
                 }
             }
         }

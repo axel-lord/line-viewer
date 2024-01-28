@@ -19,7 +19,6 @@ use tap::Pipe;
 #[clap(author, version)]
 #[clap(group(
         ArgGroup::new("input")
-        .required(true)
         .args(&["mime_type", "application", "file_path"])
         ))]
 struct Cli {
