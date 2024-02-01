@@ -88,7 +88,18 @@ impl LineView {
                 };
             }
 
-            if let Some(line) = get_cmd!(line, "import") {
+            if let Some(line) = get_cmd!(line, "-") {
+                cmd.write().unwrap().pre(line);
+            } else if let Some(line) = get_cmd!(line, "pre") {
+                cmd.write().unwrap().pre(line);
+            } else if let Some(line) = get_cmd!(line, "suf") {
+                cmd.write().unwrap().suf(line);
+            } else if let Some(line) = get_cmd!(line, "title") {
+                // only root may change title
+                if *is_root {
+                    title = String::from(line);
+                }
+            } else if let Some(line) = get_cmd!(line, "import") {
                 if let Some(source) = import::import(line, dir, &mut imported) {
                     sources.push(source);
                 }
@@ -99,15 +110,6 @@ impl LineView {
             } else if let Some(line) = get_cmd!(line, "lines") {
                 if let Some(source) = import::lines(line, dir, cmd) {
                     sources.push(source)
-                }
-            } else if let Some(line) = get_cmd!(line, "pre") {
-                cmd.write().unwrap().pre(line);
-            } else if let Some(line) = get_cmd!(line, "suf") {
-                cmd.write().unwrap().suf(line);
-            } else if let Some(line) = get_cmd!(line, "title") {
-                // only root may change title
-                if *is_root {
-                    title = String::from(line);
                 }
             }
         }
