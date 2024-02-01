@@ -1,5 +1,6 @@
 #-title Command Cleanup
-#
+# By using clean multiple commands can be used in the
+# same file
 #- printf
 #- First: %s\n
 #-subtitle First
