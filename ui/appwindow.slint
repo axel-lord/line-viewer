@@ -3,16 +3,18 @@ import { Button, VerticalBox, ListView } from "std-widgets.slint";
 struct Line {
 	text: string,
 	has-command: bool,
+	is-title: bool,
 }
 
 component ViewLine inherits Text {
 	in property <bool> has-command;
+	in property <bool> is-title;
 
-	property <bool> should-react: self.has-command && self.text != "";
+	property <bool> should-react: self.has-command && self.text != "" && !self.is-title;
 
 	callback clicked();
 
-	font-weight: area.has-hover && self.should-react ? 600 : 400;
+	font-weight: self.is-title ? 750 : area.has-hover && self.should-react ? 700 : 500;
 
 	area := TouchArea {
 		mouse-cursor: root.should-react ? MouseCursor.pointer : MouseCursor.default;
@@ -41,6 +43,7 @@ export component AppWindow inherits Window {
 			for line[i] in lines : ViewLine {
 				text: line.text;
 				has-command: line.has-command;
+				is-title: line.is-title;
 				clicked => {
 					root.line-clicked(i);
 				}

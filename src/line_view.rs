@@ -68,7 +68,12 @@ impl LineView {
                 .then_some(line.as_str())
                 .or_else(|| line.starts_with("##").then(|| &line[1..]))
             {
-                lines.push(Line::new(line.into(), Arc::clone(path), Arc::clone(cmd)));
+                lines.push(
+                    line::Builder::new(Arc::clone(path))
+                        .text(line.into())
+                        .cmd(Arc::clone(cmd))
+                        .build(),
+                );
                 continue;
             }
 
@@ -99,6 +104,13 @@ impl LineView {
                 if *is_root {
                     title = String::from(line);
                 }
+            } else if let Some(line) = get_cmd!(line, "subtitle") {
+                lines.push(
+                    line::Builder::new(Arc::clone(path))
+                        .text(line.into())
+                        .title()
+                        .build(),
+                )
             } else if let Some(line) = get_cmd!(line, "import") {
                 if let Some(source) = import::import(line, dir, &mut imported) {
                     sources.push(source);

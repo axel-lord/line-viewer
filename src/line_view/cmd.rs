@@ -7,10 +7,6 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn pre(&mut self, arg: impl Into<String>) -> &mut Self {
         self.pre.push(arg.into());
         self

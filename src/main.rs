@@ -46,6 +46,7 @@ fn lines(view: &LineView) -> ModelRc<Line> {
         .map(|line| Line {
             text: SharedString::from(line.text()),
             has_command: line.has_command(),
+            is_title: line.is_title(),
         })
         .collect::<Vec<_>>()
         .pipe(vec_to_model_rc)
