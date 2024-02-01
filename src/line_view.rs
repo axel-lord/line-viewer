@@ -56,6 +56,10 @@ impl LineView {
         {
             let mut line = String::new();
 
+            // makes use of bools easier, and prevents change of them
+            let is_root = *is_root;
+            let skip_directives = *skip_directives;
+
             // pop current layer of stack if averything is read
             if read.read_line(&mut line)? == 0 {
                 sources.pop();
@@ -80,7 +84,7 @@ impl LineView {
             // Escape # by doubling it
 
             // Line a regular comment, or skip directives active
-            if *skip_directives || !line.starts_with("#-") {
+            if skip_directives || !line.starts_with("#-") {
                 continue;
             }
 
@@ -101,7 +105,7 @@ impl LineView {
                 cmd.write().unwrap().suf(line);
             } else if let Some(line) = get_cmd!(line, "title") {
                 // only root may change title
-                if *is_root {
+                if is_root {
                     title = String::from(line);
                 }
             } else if let Some(line) = get_cmd!(line, "subtitle") {
@@ -117,7 +121,9 @@ impl LineView {
                 }
             } else if let Some(line) = get_cmd!(line, "source") {
                 if let Some(source) = import::source(line, dir, cmd, sourced) {
-                    sources.push(source)
+                    sources.push(Source { is_root, ..source }) // if something is sourced in root
+                                                               // context it is treated as root
+                                                               // itself
                 }
             } else if let Some(line) = get_cmd!(line, "lines") {
                 if let Some(source) = import::lines(line, dir, cmd) {
