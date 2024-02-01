@@ -64,13 +64,18 @@ impl LineView {
             line.truncate(line.trim_end().len());
 
             // Line not a comment or skip directives active
-            if *skip_directives || !line.starts_with('#') {
-                lines.push(Line::new(line, Arc::clone(path), Arc::clone(cmd)));
+            if let Some(line) = (!line.starts_with('#'))
+                .then_some(line.as_str())
+                .or_else(|| line.starts_with("##").then(|| &line[1..]))
+            {
+                lines.push(Line::new(line.into(), Arc::clone(path), Arc::clone(cmd)));
                 continue;
             }
 
-            // Line a regular comment
-            if !line.starts_with("#-") {
+            // Escape # by doubling it
+
+            // Line a regular comment, or skip directives active
+            if *skip_directives || !line.starts_with("#-") {
                 continue;
             }
 
