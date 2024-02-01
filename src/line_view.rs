@@ -1,7 +1,7 @@
 pub(crate) mod cmd;
 pub(crate) mod line;
 
-mod include;
+mod import;
 mod source;
 
 use std::sync::Arc;
@@ -20,7 +20,7 @@ type PathSet = FxHashSet<Arc<Path>>;
 #[derive(Debug, Clone, Default)]
 pub struct LineView {
     source: PathBuf,
-    included: PathSet,
+    imported: PathSet,
     title: String,
     lines: Vec<Line>,
 }
@@ -32,7 +32,7 @@ impl LineView {
 
         // setup stack, and source set
         let mut sources = Vec::new();
-        let mut included = FxHashSet::default();
+        let mut imported = FxHashSet::default();
 
         let mut lines = Vec::new();
         let mut title = path.display().to_string();
@@ -41,7 +41,7 @@ impl LineView {
             is_root: true,
             ..Source::new(path.to_path_buf())?
         };
-        included.insert(Arc::clone(&root.path));
+        imported.insert(Arc::clone(&root.path));
         sources.push(root);
 
         while let Some(Source {
@@ -88,16 +88,16 @@ impl LineView {
                 };
             }
 
-            if let Some(line) = get_cmd!(line, "include") {
-                if let Some(source) = include::include(line, dir, &mut included) {
+            if let Some(line) = get_cmd!(line, "import") {
+                if let Some(source) = import::import(line, dir, &mut imported) {
                     sources.push(source);
                 }
             } else if let Some(line) = get_cmd!(line, "source") {
-                if let Some(source) = include::source(line, dir, cmd, sourced) {
+                if let Some(source) = import::source(line, dir, cmd, sourced) {
                     sources.push(source)
                 }
             } else if let Some(line) = get_cmd!(line, "lines") {
-                if let Some(source) = include::lines(line, dir, cmd) {
+                if let Some(source) = import::lines(line, dir, cmd) {
                     sources.push(source)
                 }
             } else if let Some(line) = get_cmd!(line, "pre") {
@@ -118,7 +118,7 @@ impl LineView {
 
         Ok(Self {
             source: path.to_path_buf(),
-            included,
+            imported,
             lines,
             title,
         })
@@ -143,7 +143,7 @@ impl LineView {
     }
 
     pub fn all_sources(&self) -> impl Iterator<Item = &Path> {
-        self.included.iter().map(|i| i.as_ref())
+        self.imported.iter().map(|i| i.as_ref())
     }
 
     pub fn iter(&self) -> <&Self as IntoIterator>::IntoIter {

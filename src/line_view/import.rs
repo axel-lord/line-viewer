@@ -5,7 +5,7 @@ use std::{
 
 use crate::line_view::{cmd::Cmd, source::Source, PathSet};
 
-pub fn include(line: &str, dir: &Path, included: &mut PathSet) -> Option<Source> {
+pub fn import(line: &str, dir: &Path, imported: &mut PathSet) -> Option<Source> {
     let source = match Source::parse(line, dir) {
         Ok(source) => source,
         Err(err) => {
@@ -15,11 +15,11 @@ pub fn include(line: &str, dir: &Path, included: &mut PathSet) -> Option<Source>
     };
 
     // prevent cycles
-    if included.contains(&source.path) {
+    if imported.contains(&source.path) {
         return None;
     }
 
-    included.insert(Arc::clone(&source.path));
+    imported.insert(Arc::clone(&source.path));
 
     Some(source)
 }
@@ -32,7 +32,7 @@ pub fn source(
 ) -> Option<Source> {
     let source = match Source::parse(line, dir) {
         Ok(source) => Source {
-            // sources gain source context of parent, while includes get their own
+            // sources gain source context of parent, while imports get their own
             sourced: Arc::clone(sourced),
             // sourced content keep command of parent
             cmd: Arc::clone(cmd),
