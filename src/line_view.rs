@@ -88,44 +88,45 @@ impl LineView {
                 continue;
             }
 
-            let line = line[2..].trim();
+            let line = line[2..].trim_end();
 
-            // convenience macro (as of now directives not followed by a space are not allowed)
-            macro_rules! get_cmd {
-                ($name:expr, $prefix:literal) => {
-                    $name.strip_prefix(concat!($prefix, " ")).map(|s| s.trim())
-                };
+            fn get_cmd<'a>(line: &'a str, lit: &str) -> Option<&'a str> {
+                line.strip_prefix(lit)
+                    .filter(|s| s.is_empty() || s.starts_with(' '))
+                    .map(|s| s.trim_start())
             }
 
-            if let Some(line) = get_cmd!(line, "-") {
+            if let Some(line) = get_cmd(line, "") {
                 cmd.write().unwrap().pre(line);
-            } else if let Some(line) = get_cmd!(line, "pre") {
+            } else if let Some(line) = get_cmd(line, "pre") {
                 cmd.write().unwrap().pre(line);
-            } else if let Some(line) = get_cmd!(line, "suf") {
+            } else if let Some(line) = get_cmd(line, "suf") {
                 cmd.write().unwrap().suf(line);
-            } else if let Some(line) = get_cmd!(line, "title") {
+            } else if let Some(_line) = get_cmd(line, "clean") {
+                *cmd = Arc::default();
+            } else if let Some(line) = get_cmd(line, "title") {
                 // only root may change title
                 if is_root {
                     title = String::from(line);
                 }
-            } else if let Some(line) = get_cmd!(line, "subtitle") {
+            } else if let Some(line) = get_cmd(line, "subtitle") {
                 lines.push(
                     line::Builder::new(Arc::clone(path))
                         .text(line.into())
                         .title()
                         .build(),
                 )
-            } else if let Some(line) = get_cmd!(line, "import") {
+            } else if let Some(line) = get_cmd(line, "import") {
                 if let Some(source) = import::import(line, dir, &mut imported) {
                     sources.push(source);
                 }
-            } else if let Some(line) = get_cmd!(line, "source") {
+            } else if let Some(line) = get_cmd(line, "source") {
                 if let Some(source) = import::source(line, dir, cmd, sourced) {
                     sources.push(Source { is_root, ..source }) // if something is sourced in root
                                                                // context it is treated as root
                                                                // itself
                 }
-            } else if let Some(line) = get_cmd!(line, "lines") {
+            } else if let Some(line) = get_cmd(line, "lines") {
                 if let Some(source) = import::lines(line, dir, cmd) {
                     sources.push(source)
                 }
