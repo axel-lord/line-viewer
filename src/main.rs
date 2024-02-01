@@ -9,7 +9,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use clap::{Parser, ArgGroup};
+use clap::{ArgGroup, Parser};
 use line_viewer::LineView;
 use notify::{Event, EventKind, Watcher};
 use slint::{ModelRc, SharedString, VecModel};
@@ -41,9 +41,12 @@ where
     VecModel::from(v).pipe(Rc::new).pipe(ModelRc::from)
 }
 
-fn lines(view: &LineView) -> ModelRc<SharedString> {
-    view.lines()
-        .map(SharedString::from)
+fn lines(view: &LineView) -> ModelRc<Line> {
+    view.iter()
+        .map(|line| Line {
+            text: SharedString::from(line.text()),
+            has_command: line.has_command(),
+        })
         .collect::<Vec<_>>()
         .pipe(vec_to_model_rc)
 }

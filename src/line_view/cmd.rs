@@ -21,6 +21,10 @@ impl Cmd {
         self
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.suf.is_empty() && self.pre.is_empty()
+    }
+
     pub fn execute(&self, params: impl IntoIterator<Item = impl Into<String>>) -> Result {
         let mut args = self
             .pre

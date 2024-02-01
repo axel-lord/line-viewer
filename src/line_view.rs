@@ -146,7 +146,45 @@ impl LineView {
         self.included.iter().map(|i| i.as_ref())
     }
 
+    pub fn iter(&self) -> <&Self as IntoIterator>::IntoIter {
+        self.into_iter()
+    }
+
+    pub fn iter_mut(&mut self) -> <&mut Self as IntoIterator>::IntoIter {
+        self.into_iter()
+    }
+
     pub fn get(&self, index: usize) -> Option<&Line> {
         self.lines.get(index)
+    }
+}
+
+impl IntoIterator for LineView {
+    type Item = Line;
+
+    type IntoIter = <Vec<Line> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.lines.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a LineView {
+    type Item = &'a Line;
+
+    type IntoIter = <&'a Vec<Line> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.lines.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut LineView {
+    type Item = &'a mut Line;
+
+    type IntoIter = <&'a mut Vec<Line> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.lines.iter_mut()
     }
 }
