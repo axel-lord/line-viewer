@@ -5,30 +5,84 @@ use std::{
 
 use crate::{line_view::cmd::Cmd, Result};
 
-#[derive(Debug, Clone)]
-pub struct Builder {
-    source: Arc<Path>,
-    text: String,
-    cmd: Option<Arc<RwLock<Cmd>>>,
-    is_title: bool,
+#[derive(Debug, Clone, Copy, Default)]
+enum Kind {
+    #[default]
+    Default,
+    Title,
+    Warning,
 }
 
-impl Builder {
-    pub fn new(source: Arc<Path>) -> Self {
-        Self {
-            source,
+#[derive(Debug, Clone)]
+pub enum Source {
+    File(Arc<Path>),
+}
+
+impl From<Arc<Path>> for Source {
+    fn from(value: Arc<Path>) -> Self {
+        Self::File(value)
+    }
+}
+
+impl From<&Arc<Path>> for Source {
+    fn from(value: &Arc<Path>) -> Self {
+        Self::File(Arc::clone(value))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Builder<T, P> {
+    source: T,
+    position: P,
+    text: String,
+    cmd: Option<Arc<RwLock<Cmd>>>,
+    kind: Kind,
+}
+
+impl Builder<(), ()> {
+    pub fn new() -> Self {
+        Builder {
+            source: (),
+            position: (),
             text: String::new(),
             cmd: None,
-            is_title: false,
+            kind: Kind::default(),
+        }
+    }
+}
+
+impl<T, P> Builder<T, P> {
+    pub fn source(self, source: Source) -> Builder<Source, P> {
+        let Self {
+            position,
+            text,
+            cmd,
+            kind,
+            ..
+        } = self;
+        Builder {
+            source,
+            position,
+            text,
+            cmd,
+            kind,
         }
     }
 
-    pub fn build(self) -> Line {
-        Line {
-            text: self.text,
-            source: self.source,
-            cmd: self.cmd.unwrap_or_default(),
-            is_title: self.is_title,
+    pub fn position(self, position: usize) -> Builder<T, usize> {
+        let Self {
+            source,
+            text,
+            cmd,
+            kind,
+            ..
+        } = self;
+        Builder {
+            source,
+            position,
+            text,
+            cmd,
+            kind,
         }
     }
 
@@ -37,7 +91,17 @@ impl Builder {
     }
 
     pub fn title(self) -> Self {
-        Self { is_title: true, ..self }
+        Self {
+            kind: Kind::Title,
+            ..self
+        }
+    }
+
+    pub fn warning(self) -> Self {
+        Self {
+            kind: Kind::Warning,
+            ..self
+        }
     }
 
     pub fn cmd(self, cmd: Arc<RwLock<Cmd>>) -> Self {
@@ -48,17 +112,41 @@ impl Builder {
     }
 }
 
+impl Builder<Source, usize> {
+    pub fn build(self) -> Line {
+        let Self {
+            source,
+            position,
+            text,
+            cmd,
+            kind,
+        } = self;
+        Line {
+            text,
+            source,
+            position,
+            cmd: cmd.unwrap_or_default(),
+            kind,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Line {
     text: String,
-    source: Arc<Path>,
+    source: Source,
+    position: usize,
     cmd: Arc<RwLock<Cmd>>,
-    is_title: bool,
+    kind: Kind,
 }
 
 impl Line {
-    pub fn source(&self) -> &Path {
+    pub fn source(&self) -> &Source {
         &self.source
+    }
+
+    pub fn line(&self) -> usize {
+        self.position
     }
 
     pub fn text(&self) -> &str {
@@ -70,7 +158,11 @@ impl Line {
     }
 
     pub fn is_title(&self) -> bool {
-        self.is_title
+        matches!(self.kind, Kind::Title)
+    }
+
+    pub fn is_warning(&self) -> bool {
+        matches!(self.kind, Kind::Warning)
     }
 
     pub fn execute(&self) -> Result {

@@ -46,17 +46,19 @@ impl LineView {
 
         while let Some(Source {
             read,
-            path,
-            dir,
+            ref path,
+            ref dir,
             cmd,
-            is_root,
+            ref is_root,
             sourced,
-            skip_directives,
+            ref skip_directives,
         }) = sources.last_mut()
         {
+            // not yet implemented
+            let position = 0;
             let mut line = String::new();
 
-            // makes use of bools easier, and prevents change of them
+            // makes use of bools easier
             let is_root = *is_root;
             let skip_directives = *skip_directives;
 
@@ -73,7 +75,9 @@ impl LineView {
                 .or_else(|| line.starts_with("##").then(|| &line[1..]))
             {
                 lines.push(
-                    line::Builder::new(Arc::clone(path))
+                    line::Builder::new()
+                        .source(path.into())
+                        .position(position)
                         .text(line.into())
                         .cmd(Arc::clone(cmd))
                         .build(),
@@ -111,7 +115,9 @@ impl LineView {
                 }
             } else if let Some(line) = get_cmd(line, "subtitle") {
                 lines.push(
-                    line::Builder::new(Arc::clone(path))
+                    line::Builder::new()
+                        .source(Arc::clone(path).into())
+                        .position(position)
                         .text(line.into())
                         .title()
                         .build(),
@@ -130,6 +136,16 @@ impl LineView {
                 if let Some(source) = import::lines(line, dir, cmd) {
                     sources.push(source)
                 }
+            } else {
+                println!( "reached");
+                lines.push(
+                    line::Builder::new()
+                        .source(path.into())
+                        .position(position)
+                        .text(format!("invalid command \"{line}\""))
+                        .warning()
+                        .build(),
+                )
             }
         }
 

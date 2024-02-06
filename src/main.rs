@@ -47,6 +47,7 @@ fn lines(view: &LineView) -> ModelRc<Line> {
             text: SharedString::from(line.text()),
             has_command: line.has_command(),
             is_title: line.is_title(),
+            is_warning: line.is_warning(),
         })
         .collect::<Vec<_>>()
         .pipe(vec_to_model_rc)

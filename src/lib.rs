@@ -4,7 +4,7 @@ mod path_ext;
 
 pub use self::{
     error::Error,
-    line_view::{LineView, line::Line},
+    line_view::{LineView, line::{Line, Source as LineSource}},
     path_ext::PathExt,
 };
 

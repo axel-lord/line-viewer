@@ -4,6 +4,13 @@ struct Line {
 	text: string,
 	has-command: bool,
 	is-title: bool,
+	is-warning: bool,
+}
+
+component Warning inherits Text {
+    font-weight: 700;
+	text: "warning ";
+	color: orangered;
 }
 
 component ViewLine inherits Text {
@@ -40,12 +47,17 @@ export component AppWindow inherits Window {
 			text: view-title;
 		}
 		ListView {
-			for line[i] in lines : ViewLine {
-				text: line.text;
-				has-command: line.has-command;
-				is-title: line.is-title;
-				clicked => {
-					root.line-clicked(i);
+			for line[i] in lines : HorizontalLayout {
+				alignment: start;
+				if line.is-warning : Warning {}
+				ViewLine {
+					text: line.text;
+					has-command: line.has-command;
+					is-title: line.is-title;
+
+					clicked => {
+						root.line-clicked(i);
+					}
 				}
 			}
 		}
