@@ -6,7 +6,7 @@ pub use self::{
     error::Error,
     line_view::{
         line::{Line, Source as LineSource},
-        FileReader, LineReader, LineView,
+        FileReader, LineRead, LineView,
     },
     path_ext::PathExt,
 };

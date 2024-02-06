@@ -25,7 +25,7 @@ pub enum ParsedLine<'s> {
     Warning(String),
 }
 
-pub trait LineReader: Debug {
+pub trait LineRead: Debug {
     fn read(&mut self) -> Result<(usize, ParsedLine<'_>)>;
 }
 
@@ -41,7 +41,7 @@ where
     }
 }
 
-impl<R> LineReader for FileReader<R>
+impl<R> LineRead for FileReader<R>
 where
     R: Debug + Read,
 {

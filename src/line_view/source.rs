@@ -7,14 +7,14 @@ use std::{
 
 use crate::{
     line_view::{Cmd, PathSet},
-    FileReader, LineReader, PathExt, Result,
+    FileReader, LineRead, PathExt, Result,
 };
 
 type ParseResult<T> = std::result::Result<T, Cow<'static, str>>;
 #[derive(Debug)]
 
 pub struct Source {
-    pub read: Box<dyn LineReader>,
+    pub read: Box<dyn LineRead>,
     pub path: Arc<Path>,
     pub cmd: Arc<RwLock<Cmd>>,
     pub sourced: Arc<RwLock<PathSet>>,
