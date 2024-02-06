@@ -33,11 +33,6 @@ where
             return Ok((pos, ParsedLine::End));
         }
 
-        let text = buf.trim_end();
-        if text.is_empty() {
-            return Ok((pos, ParsedLine::Empty));
-        }
-
-        Ok((pos, ParsedLine::Text(text)))
+        Ok((pos, ParsedLine::parse(buf)))
     }
 }
