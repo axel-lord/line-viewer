@@ -1,11 +1,12 @@
 pub(crate) mod cmd;
+pub(crate) mod file_reader;
 pub(crate) mod line;
+pub(crate) mod line_read;
 
 mod import;
 mod source;
 
 use std::fmt::Debug;
-use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -15,57 +16,6 @@ use self::{cmd::Cmd, line::Line, source::Source};
 use crate::Result;
 
 type PathSet = FxHashSet<Arc<Path>>;
-
-#[derive(Debug, Clone, Default)]
-pub enum ParsedLine<'s> {
-    #[default]
-    Empty,
-    End,
-    Text(&'s str),
-    Warning(String),
-}
-
-pub trait LineRead: Debug {
-    fn read(&mut self) -> Result<(usize, ParsedLine<'_>)>;
-}
-
-#[derive(Debug)]
-pub struct FileReader<R>(BufReader<R>, usize, String);
-
-impl<R> FileReader<R>
-where
-    R: Read,
-{
-    pub fn new(read: R) -> Self {
-        Self(BufReader::new(read), 0, String::new())
-    }
-}
-
-impl<R> LineRead for FileReader<R>
-where
-    R: Debug + Read,
-{
-    fn read(&mut self) -> Result<(usize, ParsedLine<'_>)> {
-        let Self(read, pos, buf) = self;
-
-        let pos = {
-            *pos += 1;
-            *pos - 1
-        };
-
-        buf.clear();
-        if read.read_line(buf)? == 0 {
-            return Ok((pos, ParsedLine::End));
-        }
-
-        let text = buf.trim_end();
-        if text.is_empty() {
-            return Ok((pos, ParsedLine::Empty));
-        }
-
-        Ok((pos, ParsedLine::Text(text)))
-    }
-}
 
 #[derive(Debug, Clone, Default)]
 pub struct LineView {
@@ -108,30 +58,26 @@ impl LineView {
             let is_root = *is_root;
             let skip_directives = *skip_directives;
 
-            // pop current layer of stack if averything is read
-            // if read.read_line(&mut line)? == 0 {
-            //     sources.pop();
-            //     continue;
-            // }
+            // read line
             let (position, parsed_line) = read.read()?;
 
             // shared start of builder
             let builder = line::Builder::new().source(path.into()).position(position);
 
             let line = match parsed_line {
-                ParsedLine::Empty => {
+                line_read::ParsedLine::Empty => {
                     lines.push(builder.build());
                     continue;
                 }
-                ParsedLine::End => {
+                line_read::ParsedLine::End => {
                     sources.pop();
                     continue;
                 }
-                ParsedLine::Warning(s) => {
+                line_read::ParsedLine::Warning(s) => {
                     lines.push(builder.warning().text(s).build());
                     continue;
                 }
-                ParsedLine::Text(s) => s.trim_end(),
+                line_read::ParsedLine::Text(s) => s.trim_end(),
             };
 
             // Line not a comment or skip directives active

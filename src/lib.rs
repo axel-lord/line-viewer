@@ -5,8 +5,10 @@ mod path_ext;
 pub use self::{
     error::Error,
     line_view::{
+        file_reader::FileReader,
         line::{Line, Source as LineSource},
-        FileReader, LineRead, LineView,
+        line_read::{LineRead, ParsedLine},
+        LineView,
     },
     path_ext::PathExt,
 };
