@@ -16,7 +16,7 @@ pub enum ParsedLine<'s> {
 }
 
 impl<'s> ParsedLine<'s> {
-    pub fn parse(text: &'s str) -> Self {
+    pub fn parse_str(text: &'s str) -> Self {
         let text = text.trim_end();
         if text.is_empty() {
             Self::Empty
