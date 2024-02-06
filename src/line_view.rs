@@ -4,11 +4,10 @@ pub(crate) mod line;
 mod import;
 mod source;
 
+use std::fmt::Debug;
+use std::io::{BufRead, BufReader, Read};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::{
-    io::BufRead,
-    path::{Path, PathBuf},
-};
 
 use rustc_hash::FxHashSet;
 
@@ -16,6 +15,57 @@ use self::{cmd::Cmd, line::Line, source::Source};
 use crate::Result;
 
 type PathSet = FxHashSet<Arc<Path>>;
+
+#[derive(Debug, Clone, Default)]
+pub enum ParsedLine<'s> {
+    #[default]
+    Empty,
+    End,
+    Text(&'s str),
+    Warning(String),
+}
+
+pub trait LineReader: Debug {
+    fn read(&mut self) -> Result<(usize, ParsedLine<'_>)>;
+}
+
+#[derive(Debug)]
+pub struct FileReader<R>(BufReader<R>, usize, String);
+
+impl<R> FileReader<R>
+where
+    R: Read,
+{
+    pub fn new(read: R) -> Self {
+        Self(BufReader::new(read), 0, String::new())
+    }
+}
+
+impl<R> LineReader for FileReader<R>
+where
+    R: Debug + Read,
+{
+    fn read(&mut self) -> Result<(usize, ParsedLine<'_>)> {
+        let Self(read, pos, buf) = self;
+
+        let pos = {
+            *pos += 1;
+            *pos - 1
+        };
+
+        buf.clear();
+        if read.read_line(buf)? == 0 {
+            return Ok((pos, ParsedLine::End));
+        }
+
+        let text = buf.trim_end();
+        if text.is_empty() {
+            return Ok((pos, ParsedLine::Empty));
+        }
+
+        Ok((pos, ParsedLine::Text(text)))
+    }
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct LineView {
@@ -54,34 +104,42 @@ impl LineView {
             ref skip_directives,
         }) = sources.last_mut()
         {
-            // not yet implemented
-            let position = 0;
-            let mut line = String::new();
-
             // makes use of bools easier
             let is_root = *is_root;
             let skip_directives = *skip_directives;
 
             // pop current layer of stack if averything is read
-            if read.read_line(&mut line)? == 0 {
-                sources.pop();
-                continue;
-            }
-            line.truncate(line.trim_end().len());
+            // if read.read_line(&mut line)? == 0 {
+            //     sources.pop();
+            //     continue;
+            // }
+            let (position, parsed_line) = read.read()?;
+
+            // shared start of builder
+            let builder = line::Builder::new().source(path.into()).position(position);
+
+            let line = match parsed_line {
+                ParsedLine::Empty => {
+                    lines.push(builder.build());
+                    continue;
+                }
+                ParsedLine::End => {
+                    sources.pop();
+                    continue;
+                }
+                ParsedLine::Warning(s) => {
+                    lines.push(builder.warning().text(s).build());
+                    continue;
+                }
+                ParsedLine::Text(s) => s.trim_end(),
+            };
 
             // Line not a comment or skip directives active
             if let Some(line) = (!line.starts_with('#'))
-                .then_some(line.as_str())
+                .then_some(line)
                 .or_else(|| line.starts_with("##").then(|| &line[1..]))
             {
-                lines.push(
-                    line::Builder::new()
-                        .source(path.into())
-                        .position(position)
-                        .text(line.into())
-                        .cmd(Arc::clone(cmd))
-                        .build(),
-                );
+                lines.push(builder.text(line.into()).cmd(Arc::clone(cmd)).build());
                 continue;
             }
 
@@ -137,11 +195,8 @@ impl LineView {
                     sources.push(source)
                 }
             } else {
-                println!( "reached");
                 lines.push(
-                    line::Builder::new()
-                        .source(path.into())
-                        .position(position)
+                    builder
                         .text(format!("invalid command \"{line}\""))
                         .warning()
                         .build(),

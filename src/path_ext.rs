@@ -16,11 +16,13 @@ impl PathExt for Path {
         let s = if s.is_absolute() {
             s
         } else {
-            s.canonicalize().expect("should be able to canonicalize current directory")
+            s.canonicalize()
+                .expect("should be able to canonicalize current directory")
         };
 
         let r = internal(dest, self);
-        std::env::set_current_dir(s).expect("should be able to restore current directory to a prior value");
+        std::env::set_current_dir(s)
+            .expect("should be able to restore current directory to a prior value");
         r
     }
 }

@@ -1,21 +1,20 @@
 use std::{
     borrow::Cow,
     fs::File,
-    io::BufReader,
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
 };
 
 use crate::{
     line_view::{Cmd, PathSet},
-    PathExt, Result,
+    FileReader, LineReader, PathExt, Result,
 };
 
 type ParseResult<T> = std::result::Result<T, Cow<'static, str>>;
 #[derive(Debug)]
 
 pub struct Source {
-    pub read: BufReader<File>,
+    pub read: Box<dyn LineReader>,
     pub path: Arc<Path>,
     pub cmd: Arc<RwLock<Cmd>>,
     pub sourced: Arc<RwLock<PathSet>>,
@@ -27,7 +26,7 @@ pub struct Source {
 impl Source {
     pub fn new(path: PathBuf) -> Result<Self> {
         Ok(Self {
-            read: BufReader::new(File::open(&path)?),
+            read: Box::new(FileReader::new(File::open(&path)?)),
             path: path.as_path().into(),
             dir: {
                 let mut dir = path;

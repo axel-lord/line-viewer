@@ -2,13 +2,16 @@ use std::fmt::Display;
 
 use thiserror::Error;
 
-
 #[derive(Error, Debug)]
 pub enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("failed to spawn {} with args |{}|, {}", program, ArgProxy(args), err)]
-    Spawn{err: std::io::Error, program: String, args: Vec<String>},
+    Spawn {
+        err: std::io::Error,
+        program: String,
+        args: Vec<String>,
+    },
 }
 
 struct ArgProxy<'a>(&'a Vec<String>);
@@ -28,4 +31,3 @@ impl Display for ArgProxy<'_> {
         Ok(())
     }
 }
-
