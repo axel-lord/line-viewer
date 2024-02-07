@@ -8,4 +8,10 @@
 - [ ] Add a way to require a binary in path or at an exact location, otherwise disabling command
 - [ ] Add warnings for wrong syntax in directives, missing binaries or missing importsA
 - [ ] Add a way to disable warnings for the next directive
+- [ ] Rewrite all line add code to use ParsedLine
+- [ ] Move skip_directives from bool to reader
+- [ ] Rewrite cmd to separate args and command, and require it be finished to use
+- [ ] Add some values to environment when executing
+- [ ] Add lines created by executing a command
+- [ ] Add lines depending on success of next or previous line creation
 - [ ] Simplify creation and storage of commands and lines to eliminate locks
