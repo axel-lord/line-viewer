@@ -1,19 +1,22 @@
 pub(crate) mod cmd;
 pub(crate) mod file_reader;
 pub(crate) mod line;
+pub(crate) mod line_map;
 pub(crate) mod line_read;
 
 mod import;
 mod source;
 
-use std::fmt::Debug;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::{
+    fmt::Debug,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use rustc_hash::FxHashSet;
 
 use self::{cmd::Cmd, line::Line, source::Source};
-use crate::Result;
+use crate::{ParsedLine, Result};
 
 type PathSet = FxHashSet<Arc<Path>>;
 
@@ -51,12 +54,11 @@ impl LineView {
             cmd,
             ref is_root,
             sourced,
-            ref skip_directives,
+            ref line_map,
         }) = sources.last_mut()
         {
             // makes use of bools easier
             let is_root = *is_root;
-            let skip_directives = *skip_directives;
 
             // read line
             let (position, parsed_line) = read.read()?;
@@ -64,90 +66,91 @@ impl LineView {
             // shared start of builder
             let builder = line::Builder::new().source(path.into()).position(position);
 
-            let line = match parsed_line {
-                line_read::ParsedLine::Empty => {
-                    lines.push(builder.build());
-                    continue;
+            // apply maps in reverse order
+            let parsed_line = if let Some(line_map) = line_map.as_ref() {
+                let mut parsed_line = parsed_line;
+                for line_map in line_map {
+                    parsed_line = line_map.map(parsed_line);
                 }
-                line_read::ParsedLine::End => {
-                    sources.pop();
-                    continue;
-                }
-                line_read::ParsedLine::Warning(s) => {
-                    lines.push(builder.warning().text(s).build());
-                    continue;
-                }
-                line_read::ParsedLine::Text(s) => s.trim_end(),
+                parsed_line
+            } else {
+                parsed_line
             };
 
-            // Line not a comment or skip directives active
-            if let Some(line) = (!line.starts_with('#'))
-                .then_some(line)
-                .or_else(|| line.starts_with("##").then(|| &line[1..]))
-            {
-                lines.push(builder.text(line.into()).cmd(Arc::clone(cmd)).build());
-                continue;
-            }
-
-            // Escape # by doubling it
-
-            // Line a regular comment, or skip directives active
-            if skip_directives || !line.starts_with("#-") {
-                continue;
-            }
-
-            let line = line[2..].trim_end();
-
-            fn get_cmd<'a>(line: &'a str, lit: &str) -> Option<&'a str> {
-                line.strip_prefix(lit)
-                    .filter(|s| s.is_empty() || s.starts_with(' '))
-                    .map(|s| s.trim_start())
-            }
-
-            if let Some(line) = get_cmd(line, "") {
-                cmd.write().unwrap().pre(line);
-            } else if let Some(line) = get_cmd(line, "pre") {
-                cmd.write().unwrap().pre(line);
-            } else if let Some(line) = get_cmd(line, "suf") {
-                cmd.write().unwrap().suf(line);
-            } else if let Some(_line) = get_cmd(line, "clean") {
-                *cmd = Arc::default();
-            } else if let Some(line) = get_cmd(line, "title") {
-                // only root may change title
-                if is_root {
-                    title = String::from(line);
+            match dbg!(parsed_line) {
+                ParsedLine::None | ParsedLine::Comment(_) => {}
+                ParsedLine::Empty => {
+                    lines.push(builder.build());
                 }
-            } else if let Some(line) = get_cmd(line, "subtitle") {
-                lines.push(
-                    line::Builder::new()
-                        .source(Arc::clone(path).into())
-                        .position(position)
-                        .text(line.into())
-                        .title()
-                        .build(),
-                )
-            } else if let Some(line) = get_cmd(line, "import") {
-                if let Some(source) = import::import(line, dir, &mut imported) {
-                    sources.push(source);
+                ParsedLine::End => {
+                    dbg!(sources.pop());
                 }
-            } else if let Some(line) = get_cmd(line, "source") {
-                if let Some(source) = import::source(line, dir, cmd, sourced) {
-                    sources.push(Source { is_root, ..source }) // if something is sourced in root
-                                                               // context it is treated as root
-                                                               // itself
+                ParsedLine::Warning(s) => {
+                    lines.push(builder.warning().text(s.to_string()).build());
                 }
-            } else if let Some(line) = get_cmd(line, "lines") {
-                if let Some(source) = import::lines(line, dir, cmd) {
-                    sources.push(source)
+                ParsedLine::Directive(line) => {
+                    fn get_cmd<'a>(line: &'a str, lit: &str) -> Option<&'a str> {
+                        line.strip_prefix(lit)
+                            .filter(|s| s.is_empty() || s.starts_with(' '))
+                            .map(|s| s.trim_start())
+                    }
+
+                    if let Some(line) = get_cmd(line, "") {
+                        cmd.write().unwrap().pre(line);
+                    } else if let Some(line) = get_cmd(line, "pre") {
+                        cmd.write().unwrap().pre(line);
+                    } else if let Some(line) = get_cmd(line, "suf") {
+                        cmd.write().unwrap().suf(line);
+                    } else if let Some(_line) = get_cmd(line, "clean") {
+                        *cmd = Arc::default();
+                    } else if let Some(line) = get_cmd(line, "title") {
+                        // only root may change title
+                        if is_root {
+                            title = String::from(line);
+                        }
+                    } else if let Some(line) = get_cmd(line, "subtitle") {
+                        lines.push(
+                            line::Builder::new()
+                                .source(Arc::clone(path).into())
+                                .position(position)
+                                .text(line.into())
+                                .title()
+                                .build(),
+                        )
+                    } else if let Some(line) = get_cmd(line, "import") {
+                        if let Some(source) = import::import(line, dir, &mut imported) {
+                            sources.push(source);
+                        } else {
+                            lines.push(
+                                builder
+                                    .warning()
+                                    .text(format!("could not import \"{line}\""))
+                                    .build(),
+                            )
+                        }
+                    } else if let Some(line) = get_cmd(line, "source") {
+                        if let Some(source) = import::source(line, dir, cmd, sourced) {
+                            sources.push(Source { is_root, ..source }) // if something is sourced in root
+                                                                       // context it is treated as root
+                                                                       // itself
+                        }
+                    } else if let Some(line) = get_cmd(line, "lines") {
+                        if let Some(source) = import::lines(line, dir, cmd) {
+                            sources.push(source)
+                        }
+                    } else {
+                        lines.push(
+                            builder
+                                .text(format!("invalid command \"{line}\""))
+                                .warning()
+                                .build(),
+                        )
+                    }
                 }
-            } else {
-                lines.push(
-                    builder
-                        .text(format!("invalid command \"{line}\""))
-                        .warning()
-                        .build(),
-                )
-            }
+                ParsedLine::Text(line) => {
+                    lines.push(builder.text(line.into()).cmd(Arc::clone(cmd)).build());
+                }
+            };
         }
 
         if title.is_empty() {

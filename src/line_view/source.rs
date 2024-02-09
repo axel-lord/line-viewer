@@ -10,6 +10,8 @@ use crate::{
     FileReader, LineRead, PathExt, Result,
 };
 
+use super::line_map::LineMapNode;
+
 type ParseResult<T> = std::result::Result<T, Cow<'static, str>>;
 #[derive(Debug)]
 
@@ -20,7 +22,7 @@ pub struct Source {
     pub sourced: Arc<RwLock<PathSet>>,
     pub dir: PathBuf,
     pub is_root: bool,
-    pub skip_directives: bool,
+    pub line_map: Option<LineMapNode>,
 }
 
 impl Source {
@@ -36,7 +38,7 @@ impl Source {
             sourced: Default::default(),
             cmd: Default::default(),
             is_root: false,
-            skip_directives: false,
+            line_map: None,
         })
     }
 

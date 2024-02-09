@@ -33,6 +33,6 @@ where
             return Ok((pos, ParsedLine::End));
         }
 
-        Ok((pos, ParsedLine::parse_str(buf)))
+        Ok((pos, ParsedLine::parse_line(buf)))
     }
 }

@@ -3,7 +3,12 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use crate::line_view::{cmd::Cmd, source::Source, PathSet};
+use crate::{
+    line_view::{cmd::Cmd, source::Source, PathSet},
+    ParsedLine,
+};
+
+use super::line_map::LineMapNode;
 
 pub fn import(line: &str, dir: &Path, imported: &mut PathSet) -> Option<Source> {
     let source = match Source::parse(line, dir) {
@@ -55,6 +60,14 @@ pub fn source(
     Some(source)
 }
 
+fn skip_directives(parsed: ParsedLine<'_>) -> ParsedLine<'_> {
+    if matches!(parsed, ParsedLine::Directive(_)) {
+        ParsedLine::None
+    } else {
+        parsed
+    }
+}
+
 pub fn lines(line: &str, dir: &Path, cmd: &Arc<RwLock<Cmd>>) -> Option<Source> {
     // lines can be sourced however much is wanted since they cannot create cycles
     match Source::parse(line, dir) {
@@ -62,7 +75,7 @@ pub fn lines(line: &str, dir: &Path, cmd: &Arc<RwLock<Cmd>>) -> Option<Source> {
             // lines inherit command from parent
             cmd: Arc::clone(cmd),
             // the special part about lines
-            skip_directives: true,
+            line_map: Some(LineMapNode::new(skip_directives, None)),
             ..source
         }),
         Err(err) => {

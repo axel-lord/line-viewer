@@ -9,7 +9,8 @@
 - [ ] Add warnings for wrong syntax in directives, missing binaries or missing importsA
 - [ ] Add a way to disable warnings for the next directive
 - [ ] Rewrite all line add code to use ParsedLine
-- [ ] Move skip_directives from bool to reader
+- [x] Move skip_directives from bool to reader, edit: to map
+- [x] Add command map
 - [ ] Rewrite cmd to separate args and command, and require it be finished to use
 - [ ] Add some values to environment when executing
 - [ ] Add lines created by executing a command
