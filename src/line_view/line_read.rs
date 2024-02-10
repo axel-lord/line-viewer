@@ -12,9 +12,10 @@ pub enum ParsedLine<'s> {
     None,
     Empty,
     End,
-    Comment(&'s str),
-    Text(&'s str),
+    Comment(Cow<'s, str>),
+    Text(Cow<'s, str>),
     Warning(Cow<'s, str>),
+    Multiple(Vec<ParsedLine<'static>>), // too complicated for me to prove lifetimes
     Directive(Directive<'s>),
 }
 
@@ -26,11 +27,11 @@ impl<'s> ParsedLine<'s> {
         } else if let Some(directive) = text.strip_prefix("#-") {
             Self::Directive(Directive::parse_str(directive.trim_end()))
         } else if text.starts_with("##") {
-            Self::Text(&text[1..])
+            Self::Text(Cow::Borrowed(&text[1..]))
         } else if let Some(text) = text.strip_prefix('#') {
-            Self::Comment(text.trim())
+            Self::Comment(text.trim_start().into())
         } else {
-            Self::Text(text)
+            Self::Text(text.into())
         }
     }
 }

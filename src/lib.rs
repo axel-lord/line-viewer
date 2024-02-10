@@ -9,6 +9,8 @@ pub use self::{
         line::{Line, Source as LineSource},
         line_read::{LineRead, ParsedLine},
         LineView,
+        source::Source,
+        source_action::SourceAction,
     },
     path_ext::PathExt,
 };

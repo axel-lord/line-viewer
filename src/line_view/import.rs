@@ -53,7 +53,7 @@ impl<'line> Import<'line> {
         }
     }
 
-    pub fn perform_import<'ctx>(self, ctx: ImportCtx<'ctx>) -> std::result::Result<Source, Directive<'line>> {
+    pub fn perform_import(self, ctx: ImportCtx<'_>) -> std::result::Result<Source, Directive<'static>> {
         let Self { file, kind } = self;
         let ImportCtx {
             is_root,

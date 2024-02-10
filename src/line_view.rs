@@ -4,10 +4,9 @@ pub(crate) mod file_reader;
 pub(crate) mod line;
 pub(crate) mod line_map;
 pub(crate) mod line_read;
-
-mod import;
-mod source;
-mod source_action;
+pub(crate) mod import;
+pub(crate) mod source;
+pub(crate) mod source_action;
 
 use std::{
     path::{Path, PathBuf},
@@ -60,6 +59,10 @@ impl LineView {
                     dbg!(sources.pop());
                 }
                 source_action::SourceAction::Push(source) => sources.push(source),
+                source_action::SourceAction::Extend(source_list) => {
+                    sources.reserve(source_list.len());
+                    sources.extend(source_list);
+                },
             }
         }
 

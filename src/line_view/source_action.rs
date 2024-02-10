@@ -10,11 +10,18 @@ pub enum SourceAction {
     Noop,
     Pop,
     Push(Source),
+    Extend(Vec<Source>),
 }
 
 impl SourceAction {
     pub fn perform(
-        Source {
+        source: &mut Source,
+        imported: &mut PathSet,
+        lines: &mut Vec<Line>,
+        title: &mut String,
+    ) -> Result<SourceAction> {
+        let shallow = source.shallow();
+        let Source {
             read,
             ref path,
             cmd,
@@ -22,11 +29,8 @@ impl SourceAction {
             ref dir,
             ref is_root,
             ref line_map,
-        }: &mut Source,
-        imported: &mut PathSet,
-        lines: &mut Vec<Line>,
-        title: &mut String,
-    ) -> Result<SourceAction> {
+        } = source;
+
         // makes use of bools easier
         let is_root = *is_root;
 
@@ -58,6 +62,9 @@ impl SourceAction {
 
         match dbg!(parsed_line) {
             ParsedLine::None | ParsedLine::Comment(_) => {}
+            ParsedLine::Multiple(parses) => {
+                return Ok(SourceAction::Push(shallow.multiple(position, parses)));
+            }
             ParsedLine::Empty => {
                 lines.push(builder().build());
             }
@@ -98,8 +105,8 @@ impl SourceAction {
                             imported,
                         }) {
                             Ok(source) => source,
-                            Err(_directive) => {
-                                Source::one_shot(path.to_path_buf(), position, ParsedLine::None)
+                            Err(directive) => {
+                                shallow.one_shot(position, ParsedLine::Directive(directive))
                             }
                         },
                     ));

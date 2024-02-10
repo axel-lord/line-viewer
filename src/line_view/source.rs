@@ -2,6 +2,7 @@ use std::{
     borrow::Cow,
     fmt::Debug,
     fs::File,
+    iter::FusedIterator,
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
 };
@@ -27,9 +28,9 @@ pub struct Source {
 }
 
 impl Source {
-    pub fn new(path: PathBuf, position: usize) -> Self {
+    pub fn new(path: PathBuf) -> Self {
         Self {
-            read: Box::new(NullReader(position)),
+            read: Box::new(NullReader),
             path: path.as_path().into(),
             dir: {
                 let mut dir = path;
@@ -43,18 +44,49 @@ impl Source {
         }
     }
 
+    pub fn shallow(&self) -> Self {
+        let Self {
+            path,
+            cmd,
+            sourced,
+            dir,
+            is_root,
+            line_map,
+            ..
+        } = self;
+        Self {
+            read: Box::new(NullReader),
+            path: path.clone(),
+            cmd: cmd.clone(),
+            sourced: sourced.clone(),
+            dir: dir.clone(),
+            is_root: *is_root,
+            line_map: line_map.clone(),
+        }
+    }
+
     pub fn open(path: PathBuf) -> Result<Self> {
         Ok(Source {
             read: Box::new(FileReader::new(File::open(&path)?)),
-            ..Source::new(path, 0)
+            ..Source::new(path)
         })
     }
 
-    pub fn one_shot(path: PathBuf, position: usize, directive: ParsedLine<'static>) -> Self
-    {
+    pub fn one_shot(&self, position: usize, directive: ParsedLine<'static>) -> Self {
         Source {
             read: Box::new(OneShot(position, Some(directive))),
-            ..Self::new(path, position)
+            ..self.shallow()
+        }
+    }
+
+    pub fn multiple<IntoIter>(&self, position: usize, parses: IntoIter) -> Self
+    where
+        IntoIter: IntoIterator + 'static,
+        IntoIter::IntoIter: Debug + FusedIterator<Item = ParsedLine<'static>>,
+    {
+        Source {
+            read: Box::new(multiple(position, parses)),
+            ..self.shallow()
         }
     }
 
@@ -95,18 +127,37 @@ impl Source {
 #[derive(Clone, Debug)]
 struct OneShot(pub usize, pub Option<ParsedLine<'static>>);
 
-impl LineRead for OneShot
-{
+impl LineRead for OneShot {
     fn read(&mut self) -> Result<(usize, ParsedLine<'_>)> {
         todo!()
     }
 }
 
 #[derive(Clone, Copy, Debug)]
-struct NullReader(usize);
+struct NullReader;
 
 impl LineRead for NullReader {
     fn read(&mut self) -> Result<(usize, ParsedLine<'_>)> {
-        Ok((self.0, ParsedLine::None))
+        Ok((0, ParsedLine::None))
+    }
+}
+
+#[derive(Clone, Debug)]
+struct Multiple<I>(usize, I);
+
+fn multiple<IntoIter>(position: usize, parses: IntoIter) -> Multiple<IntoIter::IntoIter>
+where
+    IntoIter: IntoIterator + 'static,
+    IntoIter::IntoIter: Debug + FusedIterator<Item = ParsedLine<'static>>,
+{
+    Multiple(position, parses.into_iter())
+}
+
+impl<I> LineRead for Multiple<I>
+where
+    I: Debug + FusedIterator<Item = ParsedLine<'static>>,
+{
+    fn read(&mut self) -> Result<(usize, ParsedLine<'_>)> {
+        todo!()
     }
 }
