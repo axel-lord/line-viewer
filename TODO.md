@@ -16,3 +16,4 @@
 - [ ] Add lines created by executing a command
 - [ ] Add lines depending on success of next or previous line creation
 - [ ] Simplify creation and storage of commands and lines to eliminate locks
+- [ ] Merge Directive and ParsedLine
