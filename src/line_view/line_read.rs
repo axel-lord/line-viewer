@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fmt::Debug};
 
-use crate::Result;
+use crate::{line_view::directive::Directive, Result};
 
 pub trait LineRead: Debug {
     fn read(&mut self) -> Result<(usize, ParsedLine<'_>)>;
@@ -15,7 +15,7 @@ pub enum ParsedLine<'s> {
     Comment(&'s str),
     Text(&'s str),
     Warning(Cow<'s, str>),
-    Directive(&'s str),
+    Directive(Directive<'s>),
 }
 
 impl<'s> ParsedLine<'s> {
@@ -24,7 +24,7 @@ impl<'s> ParsedLine<'s> {
         if text.is_empty() {
             Self::Empty
         } else if let Some(directive) = text.strip_prefix("#-") {
-            Self::Directive(directive.trim_end())
+            Self::Directive(Directive::parse_str(directive.trim_end()))
         } else if text.starts_with("##") {
             Self::Text(&text[1..])
         } else if let Some(text) = text.strip_prefix('#') {
@@ -32,9 +32,5 @@ impl<'s> ParsedLine<'s> {
         } else {
             Self::Text(text)
         }
-    }
-
-    pub fn parse_directive(_directive: &'s str) -> Self {
-        todo!()
     }
 }
