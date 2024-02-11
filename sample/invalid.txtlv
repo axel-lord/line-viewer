@@ -1,8 +1,9 @@
-Regular
-Text
+Warnings are shown when something goes wrong or a directive is not
+used correctly or does not exist
 #-invalid-command
-More Text
 #-next-invalid command
-Last
-Text
-Lines
+#- warning this is a custom warning
+warnings require an argument, however the result of skipping
+it will still be a warning, saying it requires an argument
+so in practice they don't
+#-warning

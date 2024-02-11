@@ -1,9 +1,39 @@
-use std::sync::Arc;
+use std::{borrow::Cow, path::Path, sync::{Arc, RwLock}};
 
 use crate::{
-    line_view::{import, line, Directive, PathSet, Source},
+    line_view::{import, line, Directive, PathSet, Source, cmd::Cmd},
     Line, ParsedLine, Result,
 };
+
+
+struct Lines<'lines> {
+    pub lines: &'lines mut Vec<Line>,
+    pub path: &'lines Arc<Path>,
+    pub cmd: &'lines Arc<RwLock<Cmd>>,
+    pub position: usize,
+}
+
+impl<'lines> Lines<'lines> {
+    fn builder(&self) -> line::Builder<line::Source, usize> {
+        line::Builder::new()
+            .source(self.path.into())
+            .position(self.position)
+    }
+
+    fn push_warning(&mut self, text: Cow<'_, str>) {
+        self.lines.push(self.builder().warning().text(text.into()).build());
+    }
+    fn push_subtitle(&mut self, text: Cow<'_, str>) {
+        self.lines.push(self.builder().title().text(text.into()).build());
+    }
+    fn push_line(&mut self, text: Cow<'_, str>) {
+        self.lines
+            .push(self.builder().text(text.into()).cmd(Arc::clone(self.cmd)).build());
+    }
+    fn push_empty(&mut self) {
+        self.lines.push(self.builder().build());
+    }
+}
 
 #[derive(Debug)]
 pub enum SourceAction {
@@ -38,15 +68,11 @@ impl SourceAction {
         let (position, parsed_line) = read.read()?;
 
         // shared start of builder
-        let builder = || line::Builder::new().source(path.into()).position(position);
-        let push_warning = |lines: &mut Vec<Line>, text| {
-            lines.push(builder().warning().text(text).build());
-        };
-        let push_subtitle = |lines: &mut Vec<Line>, text| {
-            lines.push(builder().title().text(text).build());
-        };
-        let push_line = |lines: &mut Vec<Line>, text| {
-            lines.push(builder().text(text).cmd(Arc::clone(cmd)).build());
+        let mut lines = Lines {
+            lines,
+            path,
+            position,
+            cmd,
         };
 
         // apply maps in reverse order
@@ -66,13 +92,13 @@ impl SourceAction {
                 return Ok(SourceAction::Push(shallow.multiple(position, parses)));
             }
             ParsedLine::Empty => {
-                lines.push(builder().build());
+                lines.push_empty();
             }
             ParsedLine::End => {
                 return Ok(SourceAction::Pop);
             }
             ParsedLine::Warning(s) => {
-                push_warning(lines, s.to_string());
+                lines.push_warning(s);
             }
             ParsedLine::Directive(directive) => match directive {
                 Directive::Clean => {
@@ -85,7 +111,7 @@ impl SourceAction {
                     cmd.write().unwrap().suf(suf);
                 }
                 Directive::Warning(warn) => {
-                    push_warning(lines, warn.into());
+                    lines.push_warning(warn);
                 }
                 Directive::Title(text) => {
                     if is_root {
@@ -93,7 +119,7 @@ impl SourceAction {
                     }
                 }
                 Directive::Subtitle(text) => {
-                    push_subtitle(lines, text.into());
+                    lines.push_subtitle(text);
                 }
                 Directive::Import(import) => {
                     return Ok(SourceAction::Push(
@@ -111,9 +137,11 @@ impl SourceAction {
                         },
                     ));
                 }
+                Directive::Empty => lines.push_empty(),
+                Directive::Text(text) => lines.push_line(text),
             },
             ParsedLine::Text(line) => {
-                push_line(lines, line.into());
+                lines.push_line(line);
             }
         };
 
