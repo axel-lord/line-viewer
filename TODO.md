@@ -14,6 +14,7 @@
 - [ ] Rewrite cmd to separate args and command, and require it be finished to use
 - [ ] Add some values to environment when executing
 - [ ] Add lines created by executing a command
-- [ ] Add lines depending on success of next or previous line creation
+- [x] Add lines depending on success of next or previous line creation, edit: included in waring handling
 - [ ] Simplify creation and storage of commands and lines to eliminate locks
 - [x] Merge Directive and ParsedLine
+- [ ] Add file editor
