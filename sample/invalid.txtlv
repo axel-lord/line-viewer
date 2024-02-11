@@ -1,9 +1,17 @@
-Warnings are shown when something goes wrong or a directive is not
+#-title Warnings
+#
+warnings are shown when something goes wrong or a directive is not
 used correctly or does not exist
 #-invalid-command
 #-next-invalid command
+
+warnings can be issued manually
 #- warning this is a custom warning
+
 warnings require an argument, however the result of skipping
 it will still be a warning, saying it requires an argument
 so in practice they don't
 #-warning
+
+using end with nothing open leads to a warning
+#-end

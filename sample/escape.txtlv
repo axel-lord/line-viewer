@@ -8,3 +8,7 @@ mitigated, if they only appear at one end they are parsed as normal
 #-warning "   as the qoute is only on one end it will be included
 #-warning          other end"
 #-warning ""if actual quotes are desired they can simply be doubled""
+#-close
+The close directive closes the current source
+meaning no further lines are read by the program
+#-warning not even directives
