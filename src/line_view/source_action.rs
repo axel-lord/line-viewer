@@ -67,7 +67,7 @@ impl SourceAction {
             sourced,
             ref dir,
             ref is_root,
-            ref line_map,
+            line_map,
         } = source;
 
         // makes use of bools easier
@@ -108,6 +108,25 @@ impl SourceAction {
             }
             Directive::Suffix(suf) => {
                 cmd.write().unwrap().suf(suf);
+            }
+            Directive::EndMap { automatic } => {
+                if let Some(line_map_ref) = line_map.as_ref() {
+                    if line_map_ref.automatic() == automatic {
+                        *line_map = line_map_ref.prev();
+                    } else if automatic {
+                        let msg = "EndMap directive was issued automatically whilst a manual end directive was required";
+                        lines.push_warning(msg.into());
+                    } else {
+                        let msg = "end directive was given when an automatic EndMap directive was required";
+                        lines.push_warning(msg.into());
+                    }
+                } else if automatic {
+                    let msg = "EndMap directive was issued automatically with no LineMap in use";
+                    lines.push_warning(msg.into());
+                } else {
+                    let msg = "end directive used with nothing to end";
+                    lines.push_warning(msg.into());
+                }
             }
             Directive::Warning(warn) => {
                 lines.push_warning(warn);

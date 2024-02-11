@@ -138,7 +138,7 @@ fn lines(line: &str, dir: &Path, cmd: &Arc<RwLock<Cmd>>) -> Option<Source> {
             // lines inherit command from parent
             cmd: Arc::clone(cmd),
             // the special part about lines
-            line_map: Some(LineMapNode::new(skip_directives, None)),
+            line_map: Some(LineMapNode::new(skip_directives, None, true)),
             ..source
         }),
         Err(err) => {

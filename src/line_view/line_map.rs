@@ -21,6 +21,7 @@ where
 
 struct LMNodeI<LM: ?Sized> {
     pub prev: Option<Rc<LMNodeI<dyn LineMap>>>,
+    pub automatic: bool,
     pub line_map: LM,
 }
 
@@ -30,12 +31,13 @@ pub struct LineMapNode {
 }
 
 impl LineMapNode {
-    pub fn new<LM>(line_map: LM, prev: Option<Self>) -> Self
+    pub fn new<LM>(line_map: LM, prev: Option<Self>, automatic: bool) -> Self
     where
         LM: LineMap + 'static,
     {
         let this = Rc::new(LMNodeI {
             prev: prev.map(|p| p.this),
+            automatic,
             line_map,
         });
 
@@ -47,6 +49,10 @@ impl LineMapNode {
             .prev
             .as_ref()
             .map(|p| LineMapNode { this: Rc::clone(p) })
+    }
+
+    pub fn automatic(&self) -> bool {
+        self.this.automatic
     }
 }
 

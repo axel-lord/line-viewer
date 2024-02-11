@@ -9,6 +9,9 @@ pub enum Directive<'l> {
     Empty,
     Close,
     Clean,
+    EndMap {
+        automatic: bool,
+    },
     Prefix(Cow<'l, str>),
     Suffix(Cow<'l, str>),
     Warning(Cow<'l, str>),
@@ -65,6 +68,10 @@ impl<'l> Directive<'l> {
             "empty" => Self::Empty,
 
             "comment" => Self::Comment(require_payload("comment")?.into()),
+
+            "close" => Self::Close,
+
+            "end" => Self::EndMap { automatic: false },
 
             other => {
                 return Err(format!("{other} is not a directive").into());

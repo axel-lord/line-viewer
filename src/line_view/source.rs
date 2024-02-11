@@ -8,11 +8,9 @@ use std::{
 };
 
 use crate::{
-    line_view::{Cmd, PathSet},
+    line_view::{Cmd, PathSet, line_map::LineMapNode},
     Directive, FileReader, LineRead, PathExt, Result,
 };
-
-use super::line_map::LineMapNode;
 
 type ParseResult<T> = std::result::Result<T, Cow<'static, str>>;
 #[derive(Debug)]
