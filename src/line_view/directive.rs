@@ -18,8 +18,8 @@ pub enum Directive<'line> {
     EndMap {
         automatic: bool,
     },
-    Prefix(Cow<'line, str>),
-    Suffix(Cow<'line, str>),
+    Exe(Cow<'line, str>),
+    Arg(Cow<'line, str>),
     Warning(Cow<'line, str>),
     Title(Cow<'line, str>),
     Subtitle(Cow<'line, str>),
@@ -51,9 +51,9 @@ impl<'line> Directive<'line> {
         };
 
         Ok(match directive {
-            "pre" => Self::Prefix(require_payload("pre")?.into()),
+            "arg" => Self::Arg(require_payload("arg")?.into()),
 
-            "suf" => Self::Suffix(require_payload("suf")?.into()),
+            "exe" => Self::Exe(require_payload("exe")?.into()),
 
             "clean" => Self::Clean,
 

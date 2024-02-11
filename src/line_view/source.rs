@@ -1,7 +1,6 @@
 use std::{
     borrow::Cow,
     cell::RefCell,
-    fmt::Debug,
     fs::File,
     path::Path,
     rc::Rc,
@@ -11,7 +10,7 @@ use std::{
 use crate::{
     escape_path,
     line_view::{line_map::LineMapNode, Cmd, PathSet},
-    Directive, FileReader, LineRead, PathExt, Result, DynLineRead,
+    Directive, DynLineRead, FileReader, LineRead, PathExt, Result,
 };
 
 type ParseResult<T> = std::result::Result<T, Cow<'static, str>>;
@@ -28,7 +27,9 @@ pub enum Watch {
 impl Watch {
     pub fn watch(&mut self) {
         if self.is_sleeping() {
-            *self = Self::Watching { occured: Vec::new() }
+            *self = Self::Watching {
+                occured: Vec::new(),
+            }
         }
     }
     pub fn sleep(&mut self) {

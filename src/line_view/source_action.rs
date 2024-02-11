@@ -1,7 +1,7 @@
 use std::{
     borrow::Cow,
     cell::RefCell,
-    path::Path,
+    path::{Path, PathBuf},
     sync::{Arc, RwLock},
 };
 
@@ -210,11 +210,11 @@ impl SourceAction {
             Directive::Clean => {
                 *cmd = Arc::default();
             }
-            Directive::Prefix(pre) => {
-                cmd.write().unwrap().pre(pre);
+            Directive::Exe(exe) => {
+                cmd.write().unwrap().exe(PathBuf::from(exe.as_ref()));
             }
-            Directive::Suffix(suf) => {
-                cmd.write().unwrap().suf(suf);
+            Directive::Arg(arg) => {
+                cmd.write().unwrap().arg(arg.into());
             }
             Directive::Watch => {
                 let is_sleeping = warning_watcher.borrow().is_sleeping();
