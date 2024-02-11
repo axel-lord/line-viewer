@@ -30,7 +30,7 @@ where
 
         buf.clear();
         if read.read_line(buf)? == 0 {
-            return Ok((pos, ParsedLine::End));
+            return Ok((pos, ParsedLine::Close));
         }
 
         Ok((pos, ParsedLine::parse_line(buf)))

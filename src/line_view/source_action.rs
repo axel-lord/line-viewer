@@ -94,7 +94,7 @@ impl SourceAction {
             ParsedLine::Empty => {
                 lines.push_empty();
             }
-            ParsedLine::End => {
+            ParsedLine::Close => {
                 return Ok(SourceAction::Pop);
             }
             ParsedLine::Warning(s) => {

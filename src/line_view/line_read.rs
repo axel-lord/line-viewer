@@ -11,7 +11,7 @@ pub enum ParsedLine<'s> {
     #[default]
     None,
     Empty,
-    End,
+    Close,
     Comment(Cow<'s, str>),
     Text(Cow<'s, str>),
     Warning(Cow<'s, str>),
