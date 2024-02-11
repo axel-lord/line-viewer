@@ -152,6 +152,9 @@ impl SourceAction {
                 }
                 Directive::Empty => lines.push_empty(),
                 Directive::Text(text) => lines.push_line(text),
+                Directive::Multiple(parses) => {
+                    return Ok(SourceAction::Push(shallow.multiple(position, parses)));
+                }
             },
             ParsedLine::Text(line) => {
                 lines.push_line(line);

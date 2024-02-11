@@ -1,6 +1,6 @@
 use std::{borrow::Cow, char};
 
-use crate::line_view::import::Import;
+use crate::{line_view::import::Import, ParsedLine};
 
 #[derive(Debug, Clone, Default)]
 pub enum Directive<'l> {
@@ -16,6 +16,7 @@ pub enum Directive<'l> {
     Subtitle(Cow<'l, str>),
     Text(Cow<'l, str>),
     Import(Import<'l>),
+    Multiple(Vec<ParsedLine<'static>>),
 }
 
 impl<'l> Directive<'l> {
