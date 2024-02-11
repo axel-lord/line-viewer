@@ -4,10 +4,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use crate::{
-    line_view::{cmd::Cmd, source::Source, PathSet},
-    ParsedLine,
-};
+use crate::line_view::{cmd::Cmd, source::Source, PathSet};
 
 use super::{directive::Directive, line_map::LineMapNode};
 
@@ -127,11 +124,10 @@ fn source(
     Some(source)
 }
 
-fn skip_directives(parsed: ParsedLine<'_>) -> ParsedLine<'_> {
-    if matches!(parsed, ParsedLine::Directive(_)) {
-        ParsedLine::None
-    } else {
-        parsed
+fn skip_directives(parsed: Directive<'_>) -> Directive<'_> {
+    match parsed {
+        directive @ (Directive::Close | Directive::Empty | Directive::Text(..)) => directive,
+        _ => Directive::Noop,
     }
 }
 

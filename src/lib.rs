@@ -5,9 +5,10 @@ mod path_ext;
 pub use self::{
     error::Error,
     line_view::{
+        directive::Directive,
         file_reader::FileReader,
         line::{Line, Source as LineSource},
-        line_read::{LineRead, ParsedLine},
+        line_read::LineRead,
         source::Source,
         source_action::SourceAction,
         LineView,

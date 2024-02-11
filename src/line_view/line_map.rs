@@ -1,17 +1,17 @@
 use std::{any, fmt::Debug, ops::Deref, rc::Rc};
 
-use crate::ParsedLine;
+use crate::Directive;
 
 pub trait LineMap {
-    fn map<'l>(&self, line: ParsedLine<'l>) -> ParsedLine<'l>;
+    fn map<'l>(&self, line: Directive<'l>) -> Directive<'l>;
     fn name(&self) -> &str;
 }
 
 impl<F> LineMap for F
 where
-    F: Fn(ParsedLine) -> ParsedLine,
+    F: Fn(Directive) -> Directive,
 {
-    fn map<'l>(&self, line: ParsedLine<'l>) -> ParsedLine<'l> {
+    fn map<'line>(&self, line: Directive<'line>) -> Directive<'line> {
         self(line)
     }
     fn name(&self) -> &str {

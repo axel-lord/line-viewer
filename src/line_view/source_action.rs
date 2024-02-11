@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     line_view::{cmd::Cmd, import, line, Directive, PathSet, Source},
-    Line, ParsedLine, Result,
+    Line, Result,
 };
 
 struct Lines<'lines> {
@@ -74,7 +74,7 @@ impl SourceAction {
         let is_root = *is_root;
 
         // read line
-        let (position, parsed_line) = read.read()?;
+        let (position, directive) = read.read()?;
 
         // shared start of builder
         let mut lines = Lines {
@@ -85,80 +85,60 @@ impl SourceAction {
         };
 
         // apply maps in reverse order
-        let parsed_line = if let Some(line_map) = line_map.as_ref() {
-            let mut parsed_line = parsed_line;
+        let directive = if let Some(line_map) = line_map.as_ref() {
+            let mut directive = directive;
             for line_map in line_map {
-                parsed_line = line_map.map(parsed_line);
+                directive = line_map.map(directive);
             }
-            parsed_line
+            directive
         } else {
-            parsed_line
+            directive
         };
 
-        match dbg!(parsed_line) {
-            ParsedLine::None | ParsedLine::Comment(_) => {}
-            ParsedLine::Multiple(parses) => {
-                return Ok(SourceAction::Push(shallow.multiple(position, parses)));
-            }
-            ParsedLine::Empty => {
-                lines.push_empty();
-            }
-            ParsedLine::Close => {
+        match dbg!(directive) {
+            Directive::Noop | Directive::Comment(..) => {}
+            Directive::Close => {
                 return Ok(SourceAction::Pop);
             }
-            ParsedLine::Warning(s) => {
-                lines.push_warning(s);
+            Directive::Clean => {
+                *cmd = Arc::default();
             }
-            ParsedLine::Directive(directive) => match directive {
-                Directive::Noop | Directive::Comment(..) => {}
-                Directive::Close => {
-                    return Ok(SourceAction::Pop);
+            Directive::Prefix(pre) => {
+                cmd.write().unwrap().pre(pre);
+            }
+            Directive::Suffix(suf) => {
+                cmd.write().unwrap().suf(suf);
+            }
+            Directive::Warning(warn) => {
+                lines.push_warning(warn);
+            }
+            Directive::Title(text) => {
+                if is_root {
+                    *title = text.into();
                 }
-                Directive::Clean => {
-                    *cmd = Arc::default();
-                }
-                Directive::Prefix(pre) => {
-                    cmd.write().unwrap().pre(pre);
-                }
-                Directive::Suffix(suf) => {
-                    cmd.write().unwrap().suf(suf);
-                }
-                Directive::Warning(warn) => {
-                    lines.push_warning(warn);
-                }
-                Directive::Title(text) => {
-                    if is_root {
-                        *title = text.into();
-                    }
-                }
-                Directive::Subtitle(text) => {
-                    lines.push_subtitle(text);
-                }
-                Directive::Import(import) => {
-                    return Ok(SourceAction::Push(
-                        match import.perform_import(import::ImportCtx {
-                            is_root,
-                            dir,
-                            cmd,
-                            sourced,
-                            imported,
-                        }) {
-                            Ok(source) => source,
-                            Err(directive) => {
-                                shallow.one_shot(position, ParsedLine::Directive(directive))
-                            }
-                        },
-                    ));
-                }
-                Directive::Empty => lines.push_empty(),
-                Directive::Text(text) => lines.push_line(text),
+            }
+            Directive::Subtitle(text) => {
+                lines.push_subtitle(text);
+            }
+            Directive::Import(import) => {
+                return Ok(SourceAction::Push(
+                    match import.perform_import(import::ImportCtx {
+                        is_root,
+                        dir,
+                        cmd,
+                        sourced,
+                        imported,
+                    }) {
+                        Ok(source) => source,
+                        Err(directive) => shallow.one_shot(position, directive),
+                    },
+                ));
+            }
+            Directive::Empty => lines.push_empty(),
+            Directive::Text(text) => lines.push_line(text),
 
-                Directive::Multiple(parses) => {
-                    return Ok(SourceAction::Push(shallow.multiple(position, parses)));
-                }
-            },
-            ParsedLine::Text(line) => {
-                lines.push_line(line);
+            Directive::Multiple(parses) => {
+                return Ok(SourceAction::Push(shallow.multiple(position, parses)));
             }
         };
 

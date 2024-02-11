@@ -1,6 +1,6 @@
 use std::{borrow::Cow, char};
 
-use crate::{line_view::import::Import, ParsedLine};
+use crate::line_view::import::Import;
 
 #[derive(Debug, Clone, Default)]
 pub enum Directive<'l> {
@@ -17,7 +17,7 @@ pub enum Directive<'l> {
     Text(Cow<'l, str>),
     Comment(Cow<'l, str>),
     Import(Import<'l>),
-    Multiple(Vec<ParsedLine<'static>>),
+    Multiple(Vec<Directive<'static>>),
 }
 
 impl<'l> Directive<'l> {
@@ -75,6 +75,21 @@ impl<'l> Directive<'l> {
         match Self::parse_str_result(text) {
             Err(warn) => Self::Warning(warn),
             Ok(directive) => directive,
+        }
+    }
+
+    pub fn parse_line(text: &'l str) -> Self {
+        let text = text.trim_end();
+        if text.is_empty() {
+            Self::Empty
+        } else if let Some(directive) = text.strip_prefix("#-") {
+            Directive::parse_str(directive.trim_end())
+        } else if text.starts_with("##") {
+            Self::Text(Cow::Borrowed(&text[1..]))
+        } else if let Some(text) = text.strip_prefix('#') {
+            Self::Comment(text.trim_start().into())
+        } else {
+            Self::Text(text.into())
         }
     }
 }
