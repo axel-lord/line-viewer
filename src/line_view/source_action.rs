@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     line_view::{cmd::Cmd, line, Directive, PathSet, Source},
-    Line, Result,
+    Line, Result, LineRead as _,
 };
 
 use super::{

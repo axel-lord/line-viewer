@@ -12,7 +12,7 @@ use std::{
 use crate::{
     escape_path,
     line_view::{line_map::LineMapNode, Cmd, PathSet},
-    Directive, FileReader, LineRead, PathExt, Result,
+    Directive, FileReader, LineRead, PathExt, Result, DynLineRead,
 };
 
 type ParseResult<T> = std::result::Result<T, Cow<'static, str>>;
@@ -47,7 +47,7 @@ impl Watch {
 
 #[derive(Debug)]
 pub struct Source {
-    pub read: Box<dyn LineRead>,
+    pub read: DynLineRead,
     pub path: Arc<Path>,
     pub cmd: Arc<RwLock<Cmd>>,
     pub sourced: Arc<RwLock<PathSet>>,
@@ -60,7 +60,7 @@ pub struct Source {
 impl Source {
     pub fn new(path: Arc<Path>) -> Self {
         Self {
-            read: Box::new(NullReader),
+            read: DynLineRead::new(NullReader),
             dir: {
                 let mut dir = path.to_path_buf();
                 dir.pop();
@@ -77,7 +77,7 @@ impl Source {
 
     pub fn shallow(&self) -> Self {
         Self {
-            read: Box::new(NullReader),
+            read: DynLineRead::new(NullReader),
             path: self.path.clone(),
             cmd: self.cmd.clone(),
             sourced: self.sourced.clone(),
@@ -90,14 +90,14 @@ impl Source {
 
     pub fn open(path: Arc<Path>) -> Result<Self> {
         Ok(Source {
-            read: Box::new(FileReader::new(File::open(&path)?)),
+            read: DynLineRead::new(FileReader::new(File::open(&path)?)),
             ..Source::new(path)
         })
     }
 
     pub fn one_shot(&self, position: usize, directive: Directive<'static>) -> Self {
         Source {
-            read: Box::new(OneShot(position, Some(directive))),
+            read: DynLineRead::new(OneShot(position, Some(directive))),
             ..self.shallow()
         }
     }
@@ -108,7 +108,7 @@ impl Source {
         IntoIter::IntoIter: Debug + FusedIterator<Item = Directive<'static>>,
     {
         Source {
-            read: Box::new(multiple(position, parses)),
+            read: DynLineRead::new(multiple(position, parses)),
             ..self.shallow()
         }
     }
