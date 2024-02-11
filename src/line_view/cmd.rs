@@ -1,4 +1,4 @@
-use crate::{Error, Result};
+use crate::{Error, Result, LineSource};
 
 #[derive(Debug, Clone, Default)]
 pub struct Cmd {
@@ -21,7 +21,12 @@ impl Cmd {
         self.suf.is_empty() && self.pre.is_empty()
     }
 
-    pub fn execute(&self, params: impl IntoIterator<Item = impl Into<String>>) -> Result {
+    pub fn execute(
+        &self,
+        line_nr: usize,
+        line_src: LineSource,
+        params: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Result {
         let mut args = self
             .pre
             .iter()
@@ -36,6 +41,8 @@ impl Cmd {
         let args = args.collect::<Vec<_>>();
 
         std::process::Command::new(&program)
+            .env("LINE_VIEW_LINE_NR", line_nr.to_string())
+            .env("LINE_VIEW_LINE_SRC", line_src.to_string())
             .args(&args)
             .spawn()
             .map_err(|err| Error::Spawn { err, program, args })?;

@@ -1,6 +1,6 @@
 use std::{
     path::Path,
-    sync::{Arc, RwLock},
+    sync::{Arc, RwLock}, fmt::Display,
 };
 
 use crate::{line_view::cmd::Cmd, Result};
@@ -16,6 +16,14 @@ enum Kind {
 #[derive(Debug, Clone)]
 pub enum Source {
     File(Arc<Path>),
+}
+
+impl Display for Source {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Source::File(src) => write!(f, "FILE:{}", src.display()),
+        }
+    }
 }
 
 impl From<Arc<Path>> for Source {
@@ -166,6 +174,6 @@ impl Line {
     }
 
     pub fn execute(&self) -> Result {
-        self.cmd.read().unwrap().execute([self.text()])
+        self.cmd.read().unwrap().execute(self.position, self.source.clone(), [self.text()])
     }
 }

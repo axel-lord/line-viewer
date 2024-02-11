@@ -12,7 +12,7 @@
 - [x] Move skip_directives from bool to reader, edit: to map
 - [x] Add command map
 - [ ] Rewrite cmd to separate args and command, and require it be finished to use
-- [ ] Add some values to environment when executing
+- [x] Add some values to environment when executing
 - [ ] Add lines created by executing a command
 - [x] Add lines depending on success of next or previous line creation, edit: included in waring handling
 - [ ] Simplify creation and storage of commands and lines to eliminate locks
