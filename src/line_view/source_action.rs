@@ -110,7 +110,7 @@ impl SourceAction {
                 lines.push_warning(s);
             }
             ParsedLine::Directive(directive) => match directive {
-                Directive::Noop => {}
+                Directive::Noop | Directive::Comment(..) => {}
                 Directive::Close => {
                     return Ok(SourceAction::Pop);
                 }
@@ -152,6 +152,7 @@ impl SourceAction {
                 }
                 Directive::Empty => lines.push_empty(),
                 Directive::Text(text) => lines.push_line(text),
+
                 Directive::Multiple(parses) => {
                     return Ok(SourceAction::Push(shallow.multiple(position, parses)));
                 }

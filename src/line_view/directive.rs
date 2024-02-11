@@ -15,6 +15,7 @@ pub enum Directive<'l> {
     Title(Cow<'l, str>),
     Subtitle(Cow<'l, str>),
     Text(Cow<'l, str>),
+    Comment(Cow<'l, str>),
     Import(Import<'l>),
     Multiple(Vec<ParsedLine<'static>>),
 }
@@ -62,6 +63,8 @@ impl<'l> Directive<'l> {
             "text" => Self::Text(require_payload("text")?.into()),
 
             "empty" => Self::Empty,
+
+            "comment" => Self::Comment(require_payload("comment")?.into()),
 
             other => {
                 return Err(format!("{other} is not a directive").into());
