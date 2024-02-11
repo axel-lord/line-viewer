@@ -2,7 +2,7 @@
 
 - [x] Remove hover effect for lines without any command
 - [x] Rename include to import
-- ~~[x] Alias #- to #-pre since most commands will be prefixes~~
+- [x] ~~Alias #- to #-pre since most commands will be prefixes~~
 - [x] Add separators besides empty lines such as mid view titles
 - [x] Add mid list command cleanup allowing multiple commands per file without include
 - [ ] Add a way to require a binary in path or at an exact location, otherwise disabling command
