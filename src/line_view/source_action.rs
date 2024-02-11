@@ -10,7 +10,10 @@ use crate::{
     Line, Result,
 };
 
-use super::{line_map::LineMapNode, source::Watch};
+use super::{
+    line_map::{LineMap, LineMapNode},
+    source::Watch,
+};
 
 struct Lines<'lines> {
     pub lines: &'lines mut Vec<Line>,
@@ -18,6 +21,101 @@ struct Lines<'lines> {
     pub cmd: &'lines Arc<RwLock<Cmd>>,
     pub warning_watcher: &'lines RefCell<Watch>,
     pub position: usize,
+}
+
+struct Then {
+    warnings: Vec<String>,
+}
+
+impl From<Vec<String>> for Then {
+    fn from(value: Vec<String>) -> Self {
+        Self { warnings: value }
+    }
+}
+
+impl LineMap for Then {
+    fn map<'l>(&self, line: Directive<'l>, depth: usize) -> Directive<'l> {
+        match (self.warnings.is_empty(), line) {
+            // regerdless of if there are any warnings else is encountered
+            // since the else should share end block and warnings we need to
+            // automatically add an end to this block, start the watch again
+            // add the warnings back to be watched and then readd the else
+            // directive. else becomes end, watch, warning..., else
+            (_, Directive::Else) => Directive::Multiple(
+                [Directive::EndMap { automatic: false }, Directive::Watch]
+                    .into_iter()
+                    .chain(
+                        self.warnings
+                            .iter()
+                            .map(|warning| Directive::Warning(warning.clone().into())),
+                    )
+                    .chain(std::iter::once(Directive::Else))
+                    .collect(),
+            ),
+
+            // there are no warnings
+            (true, other) => other,
+
+            // there are warnings but close is encountered, close needs to
+            // be forwarded sice it is used to pop the source
+            (false, Directive::Close) => Directive::Close,
+
+            // there are warnings but an end is encountered and
+            // the depth is 0 meaning we are the top map, has
+            // to be forwarded to ensure this closes
+            (false, directive @ Directive::EndMap { .. }) if depth == 0 => directive,
+
+            // there are warnings, other directives become noop
+            (false, _) => Directive::Noop,
+        }
+    }
+
+    fn name(&self) -> &str {
+        "Then"
+    }
+}
+
+struct Else {
+    warnings: Vec<String>,
+}
+
+impl From<Vec<String>> for Else {
+    fn from(value: Vec<String>) -> Self {
+        Self { warnings: value }
+    }
+}
+
+impl LineMap for Else {
+    fn map<'l>(&self, line: Directive<'l>, depth: usize) -> Directive<'l> {
+        match (self.warnings.is_empty(), line) {
+            // has warnings and asked to display them
+            (false, Directive::DisplayWarnings) => Directive::Multiple(
+                self.warnings
+                    .iter()
+                    .map(|warning| Directive::Warning(warning.clone().into()))
+                    .collect(),
+            ),
+
+            // has warnings and any other directive
+            (false, other) => other,
+
+            // no warnings and close, forward to avoid close being ignored
+            // TODO: disconnect manual close drirective from Directive::Close
+            // to prevent this happening from manual close directives
+            (true, Directive::Close) => Directive::Close,
+
+            // no warnings and end, forward if and only if depth is 0 (we are top map)
+            // to ensure this map will be removed
+            (true, directive @ Directive::EndMap { .. }) if depth == 0 => directive,
+
+            // no warnings and any other directive, everything becomes noop
+            (true, _) => Directive::Noop,
+        }
+    }
+
+    fn name(&self) -> &str {
+        "Else"
+    }
 }
 
 impl<'lines> Lines<'lines> {
@@ -96,8 +194,8 @@ impl SourceAction {
         // apply maps in reverse order
         let directive = if let Some(line_map) = line_map.as_ref() {
             let mut directive = directive;
-            for line_map in line_map {
-                directive = line_map.map(directive);
+            for (depth, line_map) in line_map.into_iter().enumerate() {
+                directive = line_map.map(directive, depth);
             }
             directive
         } else {
@@ -118,13 +216,42 @@ impl SourceAction {
             Directive::Suffix(suf) => {
                 cmd.write().unwrap().suf(suf);
             }
-            Directive::Then(_sub_directive) => {
-                fn try_block(_directive: Directive<'_>) -> Directive<'_> {
-                    todo!()
+            Directive::Watch => {
+                let is_sleeping = warning_watcher.borrow().is_sleeping();
+                if is_sleeping {
+                    warning_watcher.borrow_mut().watch();
+                } else {
+                    lines.push_warning(
+                        "watch called multiple times before else or then block".into(),
+                    );
                 }
-                compile_error!("dont compile until implemented");
-                let prev = line_map.take();
-                *line_map = Some(LineMapNode::new(try_block, prev, false));
+            }
+            Directive::Then => {
+                if let Watch::Watching { occured } =
+                    std::mem::take(&mut *warning_watcher.borrow_mut())
+                {
+                    let prev = line_map.take();
+                    *line_map = Some(LineMapNode::new(Then::from(occured), prev, false));
+                } else {
+                    lines.push_warning(
+                        "then blocks need to be placed somewhere after a watch directive".into(),
+                    );
+                }
+            }
+            Directive::Else => {
+                if let Watch::Watching { occured } =
+                    std::mem::take(&mut *warning_watcher.borrow_mut())
+                {
+                    let prev = line_map.take();
+                    *line_map = Some(LineMapNode::new(Else::from(occured), prev, false));
+                } else {
+                    lines.push_warning(
+                        "else blocks need to be placed somewhere after a watch directive".into(),
+                    );
+                }
+            }
+            Directive::DisplayWarnings => {
+                lines.push_warning("warnings can only be displayed in else blocks".into());
             }
             Directive::IgnoreWarnings => {
                 fn ignore_warnings(directive: Directive<'_>) -> Directive<'_> {

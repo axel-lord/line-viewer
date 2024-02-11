@@ -3,7 +3,7 @@ use std::{any, fmt::Debug, ops::Deref, rc::Rc};
 use crate::Directive;
 
 pub trait LineMap {
-    fn map<'l>(&self, line: Directive<'l>) -> Directive<'l>;
+    fn map<'l>(&self, line: Directive<'l>, depth: usize) -> Directive<'l>;
     fn name(&self) -> &str;
 }
 
@@ -11,7 +11,7 @@ impl<F> LineMap for F
 where
     F: Fn(Directive) -> Directive,
 {
-    fn map<'line>(&self, line: Directive<'line>) -> Directive<'line> {
+    fn map<'line>(&self, line: Directive<'line>, _: usize) -> Directive<'line> {
         self(line)
     }
     fn name(&self) -> &str {

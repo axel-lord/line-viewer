@@ -26,6 +26,25 @@ pub enum Watch {
     Sleeping,
 }
 
+impl Watch {
+    pub fn watch(&mut self) {
+        if self.is_sleeping() {
+            *self = Self::Watching { occured: Vec::new() }
+        }
+    }
+    pub fn sleep(&mut self) {
+        if self.is_watching() {
+            *self = Self::Sleeping
+        }
+    }
+    pub fn is_sleeping(&self) -> bool {
+        matches!(self, Watch::Sleeping)
+    }
+    pub fn is_watching(&self) -> bool {
+        matches!(self, Watch::Watching { .. })
+    }
+}
+
 #[derive(Debug)]
 pub struct Source {
     pub read: Box<dyn LineRead>,

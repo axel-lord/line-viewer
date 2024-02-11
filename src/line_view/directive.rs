@@ -9,9 +9,12 @@ pub enum Directive<'line> {
     Empty,
     Close,
     Clean,
+    DisplayWarnings,
     IgnoreWarnings,
     IgnoreText,
-    Then(Cow<'line, str>),
+    Watch,
+    Then,
+    Else,
     EndMap {
         automatic: bool,
     },
@@ -78,9 +81,15 @@ impl<'line> Directive<'line> {
 
             "ignore-warnings" => Self::IgnoreWarnings,
 
+            "display-warnings" => Self::DisplayWarnings,
+
             "ignore-text" => Self::IgnoreText,
 
-            "then" => Self::Then(require_payload("then")?.into()),
+            "then" => Self::Then,
+
+            "else" => Self::Else,
+
+            "watch" => Self::Watch,
 
             other => {
                 return Err(format!("{other} is not a directive").into());
