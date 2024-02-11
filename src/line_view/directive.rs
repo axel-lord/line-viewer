@@ -3,7 +3,7 @@ use std::{borrow::Cow, char};
 use crate::line_view::import::Import;
 
 #[derive(Debug, Clone, Default)]
-pub enum Directive<'l> {
+pub enum Directive<'line> {
     #[default]
     Noop,
     Empty,
@@ -11,22 +11,23 @@ pub enum Directive<'l> {
     Clean,
     IgnoreWarnings,
     IgnoreText,
+    Then(Cow<'line, str>),
     EndMap {
         automatic: bool,
     },
-    Prefix(Cow<'l, str>),
-    Suffix(Cow<'l, str>),
-    Warning(Cow<'l, str>),
-    Title(Cow<'l, str>),
-    Subtitle(Cow<'l, str>),
-    Text(Cow<'l, str>),
-    Comment(Cow<'l, str>),
-    Import(Import<'l>),
+    Prefix(Cow<'line, str>),
+    Suffix(Cow<'line, str>),
+    Warning(Cow<'line, str>),
+    Title(Cow<'line, str>),
+    Subtitle(Cow<'line, str>),
+    Text(Cow<'line, str>),
+    Comment(Cow<'line, str>),
+    Import(Import<'line>),
     Multiple(Vec<Directive<'static>>),
 }
 
-impl<'l> Directive<'l> {
-    fn parse_directive_result(text: &'l str) -> Result<Self, Cow<'l, str>> {
+impl<'line> Directive<'line> {
+    fn parse_directive_result(text: &'line str) -> Result<Self, Cow<'line, str>> {
         let mut split = text.trim_start().splitn(2, char::is_whitespace);
 
         let Some(directive) = split.next() else {
@@ -79,19 +80,21 @@ impl<'l> Directive<'l> {
 
             "ignore-text" => Self::IgnoreText,
 
+            "then" => Self::Then(require_payload("then")?.into()),
+
             other => {
                 return Err(format!("{other} is not a directive").into());
             }
         })
     }
-    pub fn parse_directive(text: &'l str) -> Self {
+    pub fn parse_directive(text: &'line str) -> Self {
         match Self::parse_directive_result(text) {
             Err(warn) => Self::Warning(warn),
             Ok(directive) => directive,
         }
     }
 
-    pub fn parse_line(text: &'l str) -> Self {
+    pub fn parse_line(text: &'line str) -> Self {
         let text = text.trim_end();
         if text.is_empty() {
             Self::Empty

@@ -1,20 +1,22 @@
 use std::{
     borrow::Cow,
+    cell::RefCell,
     path::Path,
     sync::{Arc, RwLock},
 };
 
 use crate::{
-    line_view::{cmd::Cmd, import, line, Directive, PathSet, Source},
+    line_view::{cmd::Cmd, line, Directive, PathSet, Source},
     Line, Result,
 };
 
-use super::line_map::LineMapNode;
+use super::{line_map::LineMapNode, source::Watch};
 
 struct Lines<'lines> {
     pub lines: &'lines mut Vec<Line>,
     pub path: &'lines Arc<Path>,
     pub cmd: &'lines Arc<RwLock<Cmd>>,
+    pub warning_watcher: &'lines RefCell<Watch>,
     pub position: usize,
 }
 
@@ -26,8 +28,12 @@ impl<'lines> Lines<'lines> {
     }
 
     fn push_warning(&mut self, text: Cow<'_, str>) {
-        self.lines
-            .push(self.builder().warning().text(text.into()).build());
+        if let Watch::Watching { occured } = &mut *self.warning_watcher.borrow_mut() {
+            occured.push(text.to_string())
+        } else {
+            self.lines
+                .push(self.builder().warning().text(text.into()).build());
+        }
     }
     fn push_subtitle(&mut self, text: Cow<'_, str>) {
         self.lines
@@ -66,10 +72,10 @@ impl SourceAction {
             read,
             ref path,
             cmd,
-            sourced,
-            ref dir,
             ref is_root,
             line_map,
+            ref warning_watcher,
+            ..
         } = source;
 
         // makes use of bools easier
@@ -84,6 +90,7 @@ impl SourceAction {
             path,
             position,
             cmd,
+            warning_watcher,
         };
 
         // apply maps in reverse order
@@ -110,6 +117,14 @@ impl SourceAction {
             }
             Directive::Suffix(suf) => {
                 cmd.write().unwrap().suf(suf);
+            }
+            Directive::Then(_sub_directive) => {
+                fn try_block(_directive: Directive<'_>) -> Directive<'_> {
+                    todo!()
+                }
+                compile_error!("dont compile until implemented");
+                let prev = line_map.take();
+                *line_map = Some(LineMapNode::new(try_block, prev, false));
             }
             Directive::IgnoreWarnings => {
                 fn ignore_warnings(directive: Directive<'_>) -> Directive<'_> {
@@ -163,13 +178,7 @@ impl SourceAction {
             }
             Directive::Import(import) => {
                 return Ok(SourceAction::Push(
-                    match import.perform_import(import::ImportCtx {
-                        is_root,
-                        dir,
-                        cmd,
-                        sourced,
-                        imported,
-                    }) {
+                    match import.perform_import(shallow.shallow(), imported) {
                         Ok(source) => source,
                         Err(directive) => shallow.one_shot(position, directive),
                     },

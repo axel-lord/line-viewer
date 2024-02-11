@@ -1,9 +1,11 @@
 use std::{
     borrow::Cow,
+    cell::RefCell,
     fmt::Debug,
     fs::File,
     iter::FusedIterator,
-    path::{Path, PathBuf},
+    path::Path,
+    rc::Rc,
     sync::{Arc, RwLock},
 };
 
@@ -14,8 +16,17 @@ use crate::{
 };
 
 type ParseResult<T> = std::result::Result<T, Cow<'static, str>>;
-#[derive(Debug)]
 
+#[derive(Debug, Default)]
+pub enum Watch {
+    Watching {
+        occured: Vec<String>,
+    },
+    #[default]
+    Sleeping,
+}
+
+#[derive(Debug)]
 pub struct Source {
     pub read: Box<dyn LineRead>,
     pub path: Arc<Path>,
@@ -23,48 +34,42 @@ pub struct Source {
     pub sourced: Arc<RwLock<PathSet>>,
     pub dir: Arc<Path>,
     pub is_root: bool,
+    pub warning_watcher: Rc<RefCell<Watch>>,
     pub line_map: Option<LineMapNode>,
 }
 
 impl Source {
-    pub fn new(path: PathBuf) -> Self {
+    pub fn new(path: Arc<Path>) -> Self {
         Self {
             read: Box::new(NullReader),
-            path: path.as_path().into(),
             dir: {
-                let mut dir = path;
+                let mut dir = path.to_path_buf();
                 dir.pop();
                 dir.into()
             },
+            path,
             sourced: Default::default(),
             cmd: Default::default(),
+            warning_watcher: Default::default(),
             is_root: false,
             line_map: None,
         }
     }
 
     pub fn shallow(&self) -> Self {
-        let Self {
-            path,
-            cmd,
-            sourced,
-            dir,
-            is_root,
-            line_map,
-            ..
-        } = self;
         Self {
             read: Box::new(NullReader),
-            path: path.clone(),
-            cmd: cmd.clone(),
-            sourced: sourced.clone(),
-            dir: dir.clone(),
-            is_root: *is_root,
-            line_map: line_map.clone(),
+            path: self.path.clone(),
+            cmd: self.cmd.clone(),
+            sourced: self.sourced.clone(),
+            dir: self.dir.clone(),
+            is_root: self.is_root,
+            warning_watcher: self.warning_watcher.clone(),
+            line_map: self.line_map.clone(),
         }
     }
 
-    pub fn open(path: PathBuf) -> Result<Self> {
+    pub fn open(path: Arc<Path>) -> Result<Self> {
         Ok(Source {
             read: Box::new(FileReader::new(File::open(&path)?)),
             ..Source::new(path)
@@ -104,7 +109,8 @@ impl Source {
             return Err(Cow::from(format!("could not find {}", line.display())));
         }
 
-        Source::open(path).map_err(|err| Cow::from(format!("could not create source, {err}")))
+        Source::open(path.into())
+            .map_err(|err| Cow::from(format!("could not create source, {err}")))
     }
 }
 

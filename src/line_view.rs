@@ -42,7 +42,7 @@ impl LineView {
 
         let root = Source {
             is_root: true,
-            ..Source::open(path.to_path_buf())?
+            ..Source::open(Arc::from(path.as_path()))?
         };
         imported.insert(Arc::clone(&root.path));
         sources.push(root);

@@ -52,27 +52,28 @@ impl<'line> Import<'line> {
 
     pub fn perform_import(
         self,
-        ctx: ImportCtx<'_>,
+        parent: Source,
+        imported: &mut PathSet,
+        // ctx: ImportCtx<'_>,
     ) -> std::result::Result<Source, Directive<'static>> {
         let Self { file, kind } = self;
-        let ImportCtx {
-            is_root,
-            dir,
-            cmd,
-            sourced,
-            imported,
-        } = ctx;
         match kind {
-            ImportKind::Source => source(&file, dir, is_root, cmd, sourced),
-            ImportKind::Import => import(&file, dir, imported),
-            ImportKind::Lines => lines(&file, dir, cmd),
+            ImportKind::Source => source(
+                &file,
+                parent.dir,
+                parent.is_root,
+                parent.cmd,
+                parent.sourced,
+            ),
+            ImportKind::Import => import(&file, parent.dir, imported),
+            ImportKind::Lines => lines(&file, parent.dir, parent.cmd),
         }
         .ok_or_else(|| Directive::Warning(format!("could not source/import/lines {file}").into()))
     }
 }
 
-fn import(line: &str, dir: &Path, imported: &mut PathSet) -> Option<Source> {
-    let source = match Source::parse(line, dir) {
+fn import(line: &str, dir: Arc<Path>, imported: &mut PathSet) -> Option<Source> {
+    let source = match Source::parse(line, &dir) {
         Ok(source) => source,
         Err(err) => {
             eprintln!("{err}");
@@ -92,20 +93,25 @@ fn import(line: &str, dir: &Path, imported: &mut PathSet) -> Option<Source> {
 
 fn source(
     line: &str,
-    dir: &Path,
+    dir: Arc<Path>,
     is_root: bool,
-    cmd: &Arc<RwLock<Cmd>>,
-    sourced: &Arc<RwLock<PathSet>>,
+    cmd: Arc<RwLock<Cmd>>,
+    sourced: Arc<RwLock<PathSet>>,
 ) -> Option<Source> {
-    let source = match Source::parse(line, dir) {
+    let source = match Source::parse(line, &dir) {
         Ok(source) => Source {
             // sources gain source context of parent, while imports get their own
-            sourced: Arc::clone(sourced),
+            sourced: Arc::clone(&sourced),
             // match parent rootness
             is_root,
             // sourced content keep command of parent
-            cmd: Arc::clone(cmd),
-            ..source
+            cmd,
+            // all of these are created for the source and not inherited
+            read: source.read,
+            path: source.path,
+            dir: source.dir,
+            line_map: source.line_map,
+            warning_watcher: source.warning_watcher,
         },
         Err(err) => {
             eprintln!("{err}");
@@ -131,15 +137,21 @@ fn skip_directives(parsed: Directive<'_>) -> Directive<'_> {
     }
 }
 
-fn lines(line: &str, dir: &Path, cmd: &Arc<RwLock<Cmd>>) -> Option<Source> {
+fn lines(line: &str, dir: Arc<Path>, cmd: Arc<RwLock<Cmd>>) -> Option<Source> {
     // lines can be sourced however much is wanted since they cannot create cycles
-    match Source::parse(line, dir) {
+    match Source::parse(line, &dir) {
         Ok(source) => Some(Source {
             // lines inherit command from parent
-            cmd: Arc::clone(cmd),
+            cmd,
             // the special part about lines
             line_map: Some(LineMapNode::new(skip_directives, None, true)),
-            ..source
+            // all of these are newly created and not inherited
+            read: source.read,
+            path: source.path,
+            sourced: source.sourced,
+            dir: source.dir,
+            is_root: source.is_root,
+            warning_watcher: source.warning_watcher,
         }),
         Err(err) => {
             eprintln!("{err}");
