@@ -9,6 +9,8 @@ use crate::{
     Line, Result,
 };
 
+use super::line_map::LineMapNode;
+
 struct Lines<'lines> {
     pub lines: &'lines mut Vec<Line>,
     pub path: &'lines Arc<Path>,
@@ -108,6 +110,26 @@ impl SourceAction {
             }
             Directive::Suffix(suf) => {
                 cmd.write().unwrap().suf(suf);
+            }
+            Directive::IgnoreWarnings => {
+                fn ignore_warnings(directive: Directive<'_>) -> Directive<'_> {
+                    match directive {
+                        Directive::Warning(..) => Directive::Noop,
+                        other => other,
+                    }
+                }
+                let prev = line_map.take();
+                *line_map = Some(LineMapNode::new(ignore_warnings, prev, false));
+            }
+            Directive::IgnoreText => {
+                fn ignore_text(directive: Directive<'_>) -> Directive<'_> {
+                    match directive {
+                        Directive::Text(..) => Directive::Noop,
+                        other => other,
+                    }
+                }
+                let prev = line_map.take();
+                *line_map = Some(LineMapNode::new(ignore_text, prev, false));
             }
             Directive::EndMap { automatic } => {
                 if let Some(line_map_ref) = line_map.as_ref() {

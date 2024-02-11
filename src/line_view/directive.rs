@@ -9,6 +9,8 @@ pub enum Directive<'l> {
     Empty,
     Close,
     Clean,
+    IgnoreWarnings,
+    IgnoreText,
     EndMap {
         automatic: bool,
     },
@@ -72,6 +74,10 @@ impl<'l> Directive<'l> {
             "close" => Self::Close,
 
             "end" => Self::EndMap { automatic: false },
+
+            "ignore-warnings" => Self::IgnoreWarnings,
+
+            "ignore-text" => Self::IgnoreText,
 
             other => {
                 return Err(format!("{other} is not a directive").into());

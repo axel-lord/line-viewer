@@ -2,12 +2,12 @@
 
 - [x] Remove hover effect for lines without any command
 - [x] Rename include to import
-- [x] Alias #- to #-pre since most commands will be prefixes
+- ~~[x] Alias #- to #-pre since most commands will be prefixes~~
 - [x] Add separators besides empty lines such as mid view titles
 - [x] Add mid list command cleanup allowing multiple commands per file without include
 - [ ] Add a way to require a binary in path or at an exact location, otherwise disabling command
 - [ ] Add warnings for wrong syntax in directives, missing binaries or missing imports
-- [ ] Add a way to disable warnings for the next directive
+- [x] Add a way to disable warnings for the next directive
 - [x] Rewrite all line add code to use ParsedLine
 - [x] Move skip_directives from bool to reader, edit: to map
 - [x] Add command map

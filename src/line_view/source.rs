@@ -8,7 +8,8 @@ use std::{
 };
 
 use crate::{
-    line_view::{Cmd, PathSet, line_map::LineMapNode},
+    escape_path,
+    line_view::{line_map::LineMapNode, Cmd, PathSet},
     Directive, FileReader, LineRead, PathExt, Result,
 };
 
@@ -89,21 +90,6 @@ impl Source {
     }
 
     pub fn parse(line: &str, dir: &Path) -> ParseResult<Self> {
-        fn escape_path(line: &str) -> ParseResult<PathBuf> {
-            const HOME_PREFIX: &str = "~/";
-
-            Ok(match line.strip_prefix(HOME_PREFIX) {
-                Some(line) if line.starts_with(HOME_PREFIX) => PathBuf::from(line),
-                Some(line) => {
-                    let Some(home_dir) = home::home_dir() else {
-                        return Err("could not find user home".into());
-                    };
-                    home_dir.join(line)
-                }
-                None => PathBuf::from(line),
-            })
-        }
-
         let line = escape_path(line)?;
 
         let path = line.canonicalize_at(dir).map_err(|err| {
