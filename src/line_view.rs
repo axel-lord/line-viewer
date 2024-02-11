@@ -1,10 +1,10 @@
 pub(crate) mod cmd;
 pub(crate) mod directive;
 pub(crate) mod file_reader;
+pub(crate) mod import;
 pub(crate) mod line;
 pub(crate) mod line_map;
 pub(crate) mod line_read;
-pub(crate) mod import;
 pub(crate) mod source;
 pub(crate) mod source_action;
 
@@ -62,7 +62,7 @@ impl LineView {
                 source_action::SourceAction::Extend(source_list) => {
                     sources.reserve(source_list.len());
                     sources.extend(source_list);
-                },
+                }
             }
         }
 

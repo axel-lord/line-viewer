@@ -1,10 +1,13 @@
-use std::{borrow::Cow, path::Path, sync::{Arc, RwLock}};
-
-use crate::{
-    line_view::{import, line, Directive, PathSet, Source, cmd::Cmd},
-    Line, ParsedLine, Result,
+use std::{
+    borrow::Cow,
+    path::Path,
+    sync::{Arc, RwLock},
 };
 
+use crate::{
+    line_view::{cmd::Cmd, import, line, Directive, PathSet, Source},
+    Line, ParsedLine, Result,
+};
 
 struct Lines<'lines> {
     pub lines: &'lines mut Vec<Line>,
@@ -21,14 +24,20 @@ impl<'lines> Lines<'lines> {
     }
 
     fn push_warning(&mut self, text: Cow<'_, str>) {
-        self.lines.push(self.builder().warning().text(text.into()).build());
+        self.lines
+            .push(self.builder().warning().text(text.into()).build());
     }
     fn push_subtitle(&mut self, text: Cow<'_, str>) {
-        self.lines.push(self.builder().title().text(text.into()).build());
+        self.lines
+            .push(self.builder().title().text(text.into()).build());
     }
     fn push_line(&mut self, text: Cow<'_, str>) {
-        self.lines
-            .push(self.builder().text(text.into()).cmd(Arc::clone(self.cmd)).build());
+        self.lines.push(
+            self.builder()
+                .text(text.into())
+                .cmd(Arc::clone(self.cmd))
+                .build(),
+        );
     }
     fn push_empty(&mut self) {
         self.lines.push(self.builder().build());
@@ -101,6 +110,10 @@ impl SourceAction {
                 lines.push_warning(s);
             }
             ParsedLine::Directive(directive) => match directive {
+                Directive::Noop => {}
+                Directive::Close => {
+                    return Ok(SourceAction::Pop);
+                }
                 Directive::Clean => {
                     *cmd = Arc::default();
                 }

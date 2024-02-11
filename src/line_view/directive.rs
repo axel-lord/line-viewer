@@ -2,10 +2,13 @@ use std::{borrow::Cow, char};
 
 use crate::line_view::import::Import;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum Directive<'l> {
-    Clean,
+    #[default]
+    Noop,
     Empty,
+    Close,
+    Clean,
     Prefix(Cow<'l, str>),
     Suffix(Cow<'l, str>),
     Warning(Cow<'l, str>),
