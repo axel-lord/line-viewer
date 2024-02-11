@@ -26,7 +26,7 @@ pub enum Directive<'l> {
 }
 
 impl<'l> Directive<'l> {
-    fn parse_str_result(text: &'l str) -> Result<Self, Cow<'l, str>> {
+    fn parse_directive_result(text: &'l str) -> Result<Self, Cow<'l, str>> {
         let mut split = text.trim_start().splitn(2, char::is_whitespace);
 
         let Some(directive) = split.next() else {
@@ -84,8 +84,8 @@ impl<'l> Directive<'l> {
             }
         })
     }
-    pub fn parse_str(text: &'l str) -> Self {
-        match Self::parse_str_result(text) {
+    pub fn parse_directive(text: &'l str) -> Self {
+        match Self::parse_directive_result(text) {
             Err(warn) => Self::Warning(warn),
             Ok(directive) => directive,
         }
@@ -96,7 +96,7 @@ impl<'l> Directive<'l> {
         if text.is_empty() {
             Self::Empty
         } else if let Some(directive) = text.strip_prefix("#-") {
-            Directive::parse_str(directive.trim_end())
+            Directive::parse_directive(directive.trim_end())
         } else if text.starts_with("##") {
             Self::Text(Cow::Borrowed(&text[1..]))
         } else if let Some(text) = text.strip_prefix('#') {
