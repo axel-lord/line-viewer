@@ -3,7 +3,6 @@ use std::{
     cell::RefCell,
     fmt::Debug,
     fs::File,
-    iter::FusedIterator,
     path::Path,
     rc::Rc,
     sync::{Arc, RwLock},
@@ -95,24 +94,6 @@ impl Source {
         })
     }
 
-    pub fn one_shot(&self, position: usize, directive: Directive<'static>) -> Self {
-        Source {
-            read: DynLineRead::new(OneShot(position, Some(directive))),
-            ..self.shallow()
-        }
-    }
-
-    pub fn multiple<IntoIter>(&self, position: usize, parses: IntoIter) -> Self
-    where
-        IntoIter: IntoIterator + 'static,
-        IntoIter::IntoIter: Debug + FusedIterator<Item = Directive<'static>>,
-    {
-        Source {
-            read: DynLineRead::new(multiple(position, parses)),
-            ..self.shallow()
-        }
-    }
-
     pub fn parse(line: &str, dir: &Path) -> ParseResult<Self> {
         let line = escape_path(line)?;
 
@@ -133,40 +114,11 @@ impl Source {
     }
 }
 
-#[derive(Clone, Debug)]
-struct OneShot(pub usize, pub Option<Directive<'static>>);
-
-impl LineRead for OneShot {
-    fn read(&mut self) -> Result<(usize, Directive<'_>)> {
-        todo!()
-    }
-}
-
 #[derive(Clone, Copy, Debug)]
 struct NullReader;
 
 impl LineRead for NullReader {
     fn read(&mut self) -> Result<(usize, Directive<'_>)> {
         Ok((0, Directive::Noop))
-    }
-}
-
-#[derive(Clone, Debug)]
-struct Multiple<I>(usize, I);
-
-fn multiple<IntoIter>(position: usize, parses: IntoIter) -> Multiple<IntoIter::IntoIter>
-where
-    IntoIter: IntoIterator + 'static,
-    IntoIter::IntoIter: Debug + FusedIterator<Item = Directive<'static>>,
-{
-    Multiple(position, parses.into_iter())
-}
-
-impl<I> LineRead for Multiple<I>
-where
-    I: Debug + FusedIterator<Item = Directive<'static>>,
-{
-    fn read(&mut self) -> Result<(usize, Directive<'_>)> {
-        todo!()
     }
 }

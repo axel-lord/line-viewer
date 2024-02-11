@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     line_view::{cmd::Cmd, line, Directive, PathSet, Source},
-    Line, Result, LineRead as _,
+    Line, LineRead as _, Result,
 };
 
 use super::{
@@ -303,19 +303,21 @@ impl SourceAction {
             Directive::Subtitle(text) => {
                 lines.push_subtitle(text);
             }
-            Directive::Import(import) => {
-                return Ok(SourceAction::Push(
-                    match import.perform_import(shallow.shallow(), imported) {
-                        Ok(source) => source,
-                        Err(directive) => shallow.one_shot(position, directive),
-                    },
-                ));
-            }
+            Directive::Import(import) => match import.perform_import(shallow.shallow(), imported) {
+                Ok(source) => {
+                    return Ok(SourceAction::Push(source));
+                }
+                Err(directive) => {
+                    read.enqueue(position, directive);
+                }
+            },
             Directive::Empty => lines.push_empty(),
             Directive::Text(text) => lines.push_line(text),
 
             Directive::Multiple(parses) => {
-                return Ok(SourceAction::Push(shallow.multiple(position, parses)));
+                for directive in parses {
+                    read.enqueue(position, directive);
+                }
             }
         };
 
