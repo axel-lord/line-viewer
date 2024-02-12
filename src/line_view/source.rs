@@ -52,7 +52,6 @@ pub struct Source {
     pub cmd: Arc<RwLock<Cmd>>,
     pub sourced: Arc<RwLock<PathSet>>,
     pub dir: Arc<Path>,
-    pub is_root: bool,
     pub warning_watcher: Rc<RefCell<Watch>>,
     pub line_map: Option<LineMapNode>,
 }
@@ -70,7 +69,6 @@ impl Source {
             sourced: Default::default(),
             cmd: Default::default(),
             warning_watcher: Default::default(),
-            is_root: false,
             line_map: None,
         }
     }
@@ -82,7 +80,6 @@ impl Source {
             cmd: self.cmd.clone(),
             sourced: self.sourced.clone(),
             dir: self.dir.clone(),
-            is_root: self.is_root,
             warning_watcher: self.warning_watcher.clone(),
             line_map: self.line_map.clone(),
         }

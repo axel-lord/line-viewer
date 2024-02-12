@@ -38,12 +38,9 @@ impl LineView {
         let mut imported = FxHashSet::default();
 
         let mut lines = Vec::new();
-        let mut title = path.display().to_string();
+        let mut title = None;
 
-        let root = Source {
-            is_root: true,
-            ..Source::open(Arc::from(path.as_path()))?
-        };
+        let root = Source::open(Arc::from(path.as_path()))?;
         imported.insert(Arc::clone(&root.path));
         sources.push(root);
 
@@ -66,9 +63,7 @@ impl LineView {
             }
         }
 
-        if title.is_empty() {
-            title = path.display().to_string();
-        }
+        let title = title.unwrap_or_else(|| path.display().to_string());
 
         Ok(Self {
             source: path.to_path_buf(),

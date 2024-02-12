@@ -163,21 +163,17 @@ impl SourceAction {
         source: &mut Source,
         imported: &mut PathSet,
         lines: &mut Vec<Line>,
-        title: &mut String,
+        title: &mut Option<String>,
     ) -> Result<SourceAction> {
         let shallow = source.shallow();
         let Source {
             read,
             ref path,
             cmd,
-            ref is_root,
             line_map,
             ref warning_watcher,
             ..
         } = source;
-
-        // makes use of bools easier
-        let is_root = *is_root;
 
         // read line
         let (position, directive) = read.read()?;
@@ -296,8 +292,8 @@ impl SourceAction {
                 lines.push_warning(warn);
             }
             Directive::Title(text) => {
-                if is_root {
-                    *title = text.into();
+                if title.is_none() {
+                    *title = Some(text.into());
                 }
             }
             Directive::Subtitle(text) => {

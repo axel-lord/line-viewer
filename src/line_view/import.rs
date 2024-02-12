@@ -61,7 +61,6 @@ impl<'line> Import<'line> {
             ImportKind::Source => source(
                 &file,
                 parent.dir,
-                parent.is_root,
                 parent.cmd,
                 parent.sourced,
             ),
@@ -94,7 +93,6 @@ fn import(line: &str, dir: Arc<Path>, imported: &mut PathSet) -> Option<Source> 
 fn source(
     line: &str,
     dir: Arc<Path>,
-    is_root: bool,
     cmd: Arc<RwLock<Cmd>>,
     sourced: Arc<RwLock<PathSet>>,
 ) -> Option<Source> {
@@ -102,8 +100,6 @@ fn source(
         Ok(source) => Source {
             // sources gain source context of parent, while imports get their own
             sourced: Arc::clone(&sourced),
-            // match parent rootness
-            is_root,
             // sourced content keep command of parent
             cmd,
             // all of these are created for the source and not inherited
@@ -150,7 +146,6 @@ fn lines(line: &str, dir: Arc<Path>, cmd: Arc<RwLock<Cmd>>) -> Option<Source> {
             path: source.path,
             sourced: source.sourced,
             dir: source.dir,
-            is_root: source.is_root,
             warning_watcher: source.warning_watcher,
         }),
         Err(err) => {
