@@ -10,7 +10,7 @@ use std::{
 use crate::{
     escape_path,
     line_view::{line_map::LineMapNode, Cmd, PathSet},
-    Directive, DynLineRead, FileReader, LineRead, PathExt, Result,
+    Directive, LineReader, FileReader, LineRead, PathExt, Result,
 };
 
 type ParseResult<T> = std::result::Result<T, Cow<'static, str>>;
@@ -47,7 +47,7 @@ impl Watch {
 
 #[derive(Debug)]
 pub struct Source {
-    pub read: DynLineRead,
+    pub read: LineReader,
     pub path: Arc<Path>,
     pub cmd: Arc<RwLock<Cmd>>,
     pub sourced: Arc<RwLock<PathSet>>,
@@ -59,7 +59,7 @@ pub struct Source {
 impl Source {
     pub fn new(path: Arc<Path>) -> Self {
         Self {
-            read: DynLineRead::new(NullReader),
+            read: LineReader::new(NullReader),
             dir: {
                 let mut dir = path.to_path_buf();
                 dir.pop();
@@ -75,7 +75,7 @@ impl Source {
 
     pub fn shallow(&self) -> Self {
         Self {
-            read: DynLineRead::new(NullReader),
+            read: LineReader::new(NullReader),
             path: self.path.clone(),
             cmd: self.cmd.clone(),
             sourced: self.sourced.clone(),
@@ -87,7 +87,7 @@ impl Source {
 
     pub fn open(path: Arc<Path>) -> Result<Self> {
         Ok(Source {
-            read: DynLineRead::new(FileReader::new(File::open(&path)?)),
+            read: LineReader::new(FileReader::new(File::open(&path)?)),
             ..Source::new(path)
         })
     }

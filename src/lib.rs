@@ -10,7 +10,7 @@ pub use self::{
         directive::Directive,
         file_reader::FileReader,
         line::{Line, Source as LineSource},
-        line_read::{LineRead, DynLineRead},
+        line_read::{LineRead, LineReader},
         source::Source,
         source_action::SourceAction,
         LineView,
