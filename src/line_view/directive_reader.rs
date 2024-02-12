@@ -1,24 +1,24 @@
-use crate::{Directive, LineRead, Result};
+use crate::{Directive, DirectiveSource, Result};
 use std::{
     fmt::Debug,
-    io::{BufRead, BufReader, Read},
+    io::BufRead,
 };
 
 #[derive(Debug)]
-pub struct FileReader<R>(BufReader<R>, usize, String);
+pub struct DirectiveReader<R>(R, usize, String);
 
-impl<R> FileReader<R>
+impl<R> DirectiveReader<R>
 where
-    R: Read,
+    R: BufRead,
 {
     pub fn new(read: R) -> Self {
-        Self(BufReader::new(read), 0, String::new())
+        Self(read, 0, String::new())
     }
 }
 
-impl<R> LineRead for FileReader<R>
+impl<R> DirectiveSource for DirectiveReader<R>
 where
-    R: Debug + Read,
+    R: Debug + BufRead,
 {
     fn read(&mut self) -> Result<(usize, Directive<'_>)> {
         let Self(read, pos, buf) = self;

@@ -7,11 +7,11 @@ use std::{
 
 use crate::{
     line_view::{cmd::Cmd, line, Directive, PathSet, Source},
-    Line, LineRead as _, Result,
+    Line, DirectiveSource as _, Result,
 };
 
 use super::{
-    line_map::{LineMap, LineMapNode},
+    line_map::{DirectiveMapper, DirectiveMapperChain},
     source::Watch,
 };
 
@@ -33,7 +33,7 @@ impl From<Vec<String>> for Then {
     }
 }
 
-impl LineMap for Then {
+impl DirectiveMapper for Then {
     fn map<'l>(&self, line: Directive<'l>, depth: usize) -> Directive<'l> {
         match (self.warnings.is_empty(), line) {
             // regerdless of if there are any warnings else is encountered
@@ -85,7 +85,7 @@ impl From<Vec<String>> for Else {
     }
 }
 
-impl LineMap for Else {
+impl DirectiveMapper for Else {
     fn map<'l>(&self, line: Directive<'l>, depth: usize) -> Directive<'l> {
         match (self.warnings.is_empty(), line) {
             // has warnings and asked to display them
@@ -227,7 +227,7 @@ impl SourceAction {
                     std::mem::take(&mut *warning_watcher.borrow_mut())
                 {
                     let prev = line_map.take();
-                    *line_map = Some(LineMapNode::new(Then::from(occured), prev, false));
+                    *line_map = Some(DirectiveMapperChain::new(Then::from(occured), prev, false));
                 } else {
                     lines.push_warning(
                         "then blocks need to be placed somewhere after a watch directive".into(),
@@ -239,7 +239,7 @@ impl SourceAction {
                     std::mem::take(&mut *warning_watcher.borrow_mut())
                 {
                     let prev = line_map.take();
-                    *line_map = Some(LineMapNode::new(Else::from(occured), prev, false));
+                    *line_map = Some(DirectiveMapperChain::new(Else::from(occured), prev, false));
                 } else {
                     lines.push_warning(
                         "else blocks need to be placed somewhere after a watch directive".into(),
@@ -257,7 +257,7 @@ impl SourceAction {
                     }
                 }
                 let prev = line_map.take();
-                *line_map = Some(LineMapNode::new(ignore_warnings, prev, false));
+                *line_map = Some(DirectiveMapperChain::new(ignore_warnings, prev, false));
             }
             Directive::IgnoreText => {
                 fn ignore_text(directive: Directive<'_>) -> Directive<'_> {
@@ -267,7 +267,7 @@ impl SourceAction {
                     }
                 }
                 let prev = line_map.take();
-                *line_map = Some(LineMapNode::new(ignore_text, prev, false));
+                *line_map = Some(DirectiveMapperChain::new(ignore_text, prev, false));
             }
             Directive::EndMap { automatic } => {
                 if let Some(line_map_ref) = line_map.as_ref() {

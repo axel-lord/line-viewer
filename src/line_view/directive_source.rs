@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use crate::{Directive, Result};
 
-pub trait LineRead: Debug {
+pub trait DirectiveSource: Debug {
     fn read(&mut self) -> Result<(usize, Directive<'_>)>;
 }
 
@@ -12,13 +12,13 @@ struct Fused<T> {
     empty: Option<usize>,
 }
 
-impl<T> From<T> for Fused<T> where T: LineRead {
+impl<T> From<T> for Fused<T> where T: DirectiveSource {
     fn from(value: T) -> Self {
         Fused { line_read: value, empty: None }
     }
 }
 
-impl<T> LineRead for Fused<T> where T: LineRead {
+impl<T> DirectiveSource for Fused<T> where T: DirectiveSource {
     fn read(&mut self) -> Result<(usize, Directive<'_>)> {
         let Self { line_read, empty } = self;
         if let Some(size) = *empty {
@@ -35,29 +35,29 @@ impl<T> LineRead for Fused<T> where T: LineRead {
     }
 }
 
-struct LineReaderInner<LR: ?Sized> {
+struct Inner<LR: ?Sized> {
     stack: Vec<(usize, Directive<'static>)>,
     debug: fn() -> &'static str,
     line_read: LR,
 }
 
-impl<T: ?Sized> Debug for LineReaderInner<T> {
+impl<T: ?Sized> Debug for Inner<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", (self.debug)())
     }
 }
 
-pub struct LineReader {
-    this: Box<LineReaderInner<dyn LineRead>>,
+pub struct DirectiveStream {
+    this: Box<Inner<dyn DirectiveSource>>,
 }
 
-impl LineReader {
+impl DirectiveStream {
     pub fn new<LR>(line_read: LR) -> Self
     where
-        LR: 'static + LineRead,
+        LR: 'static + DirectiveSource,
     {
         let line_read = Fused::from(line_read);
-        let this = Box::new(LineReaderInner {
+        let this = Box::new(Inner {
             stack: Vec::new(),
             debug: || std::any::type_name::<LR>(),
             line_read,
@@ -72,7 +72,7 @@ impl LineReader {
     }
 }
 
-impl Debug for LineReader {
+impl Debug for DirectiveStream {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DynLineRead")
             .field("line_read", &self.this)
@@ -80,7 +80,7 @@ impl Debug for LineReader {
     }
 }
 
-impl LineRead for LineReader {
+impl DirectiveSource for DirectiveStream {
     fn read(&mut self) -> Result<(usize, Directive<'_>)> {
         if let Some(res) = self.this.stack.pop() {
             Ok(res)

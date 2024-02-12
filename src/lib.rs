@@ -8,9 +8,9 @@ pub use self::{
     error::Error,
     line_view::{
         directive::Directive,
-        file_reader::FileReader,
+        directive_reader::DirectiveReader,
         line::{Line, Source as LineSource},
-        line_read::{LineRead, LineReader},
+        directive_source::{DirectiveSource, DirectiveStream},
         source::Source,
         source_action::SourceAction,
         LineView,

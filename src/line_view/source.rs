@@ -2,15 +2,18 @@ use std::{
     borrow::Cow,
     cell::RefCell,
     fs::File,
+    io::BufReader,
     path::Path,
     rc::Rc,
     sync::{Arc, RwLock},
 };
 
+use tap::Pipe;
+
 use crate::{
     escape_path,
-    line_view::{line_map::LineMapNode, Cmd, PathSet},
-    Directive, LineReader, FileReader, LineRead, PathExt, Result,
+    line_view::{line_map::DirectiveMapperChain, Cmd, PathSet},
+    Directive, DirectiveReader, DirectiveSource, DirectiveStream, PathExt, Result,
 };
 
 type ParseResult<T> = std::result::Result<T, Cow<'static, str>>;
@@ -47,19 +50,19 @@ impl Watch {
 
 #[derive(Debug)]
 pub struct Source {
-    pub read: LineReader,
+    pub read: DirectiveStream,
     pub path: Arc<Path>,
     pub cmd: Arc<RwLock<Cmd>>,
     pub sourced: Arc<RwLock<PathSet>>,
     pub dir: Arc<Path>,
     pub warning_watcher: Rc<RefCell<Watch>>,
-    pub line_map: Option<LineMapNode>,
+    pub line_map: Option<DirectiveMapperChain>,
 }
 
 impl Source {
     pub fn new(path: Arc<Path>) -> Self {
         Self {
-            read: LineReader::new(NullReader),
+            read: DirectiveStream::new(NullReader),
             dir: {
                 let mut dir = path.to_path_buf();
                 dir.pop();
@@ -75,7 +78,7 @@ impl Source {
 
     pub fn shallow(&self) -> Self {
         Self {
-            read: LineReader::new(NullReader),
+            read: DirectiveStream::new(NullReader),
             path: self.path.clone(),
             cmd: self.cmd.clone(),
             sourced: self.sourced.clone(),
@@ -87,7 +90,10 @@ impl Source {
 
     pub fn open(path: Arc<Path>) -> Result<Self> {
         Ok(Source {
-            read: LineReader::new(FileReader::new(File::open(&path)?)),
+            read: File::open(&path)?
+                .pipe(BufReader::new)
+                .pipe(DirectiveReader::new)
+                .pipe(DirectiveStream::new),
             ..Source::new(path)
         })
     }
@@ -115,7 +121,7 @@ impl Source {
 #[derive(Clone, Copy, Debug)]
 struct NullReader;
 
-impl LineRead for NullReader {
+impl DirectiveSource for NullReader {
     fn read(&mut self) -> Result<(usize, Directive<'_>)> {
         Ok((0, Directive::Noop))
     }

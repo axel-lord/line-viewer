@@ -6,7 +6,7 @@ use std::{
 
 use crate::line_view::{cmd::Cmd, source::Source, PathSet};
 
-use super::{directive::Directive, line_map::LineMapNode};
+use super::{directive::Directive, line_map::DirectiveMapperChain};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ImportKind {
@@ -140,7 +140,7 @@ fn lines(line: &str, dir: Arc<Path>, cmd: Arc<RwLock<Cmd>>) -> Option<Source> {
             // lines inherit command from parent
             cmd,
             // the special part about lines
-            line_map: Some(LineMapNode::new(skip_directives, None, true)),
+            line_map: Some(DirectiveMapperChain::new(skip_directives, None, true)),
             // all of these are newly created and not inherited
             read: source.read,
             path: source.path,

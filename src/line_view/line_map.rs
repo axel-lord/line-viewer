@@ -2,12 +2,12 @@ use std::{any, fmt::Debug, ops::Deref, rc::Rc};
 
 use crate::Directive;
 
-pub trait LineMap {
+pub trait DirectiveMapper {
     fn map<'l>(&self, line: Directive<'l>, depth: usize) -> Directive<'l>;
     fn name(&self) -> &str;
 }
 
-impl<F> LineMap for F
+impl<F> DirectiveMapper for F
 where
     F: Fn(Directive) -> Directive,
 {
@@ -19,23 +19,23 @@ where
     }
 }
 
-struct LMNodeI<LM: ?Sized> {
-    pub prev: Option<Rc<LMNodeI<dyn LineMap>>>,
+struct Inner<LM: ?Sized> {
+    pub prev: Option<Rc<Inner<dyn DirectiveMapper>>>,
     pub automatic: bool,
     pub line_map: LM,
 }
 
 #[derive(Clone)]
-pub struct LineMapNode {
-    this: Rc<LMNodeI<dyn LineMap>>,
+pub struct DirectiveMapperChain {
+    this: Rc<Inner<dyn DirectiveMapper>>,
 }
 
-impl LineMapNode {
+impl DirectiveMapperChain {
     pub fn new<LM>(line_map: LM, prev: Option<Self>, automatic: bool) -> Self
     where
-        LM: LineMap + 'static,
+        LM: DirectiveMapper + 'static,
     {
-        let this = Rc::new(LMNodeI {
+        let this = Rc::new(Inner {
             prev: prev.map(|p| p.this),
             automatic,
             line_map,
@@ -48,7 +48,7 @@ impl LineMapNode {
         self.this
             .prev
             .as_ref()
-            .map(|p| LineMapNode { this: Rc::clone(p) })
+            .map(|p| DirectiveMapperChain { this: Rc::clone(p) })
     }
 
     pub fn automatic(&self) -> bool {
@@ -57,9 +57,9 @@ impl LineMapNode {
 }
 
 #[derive(Debug)]
-pub struct Iter(Option<LineMapNode>);
+pub struct Iter(Option<DirectiveMapperChain>);
 impl Iterator for Iter {
-    type Item = LineMapNode;
+    type Item = DirectiveMapperChain;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(next) = self.0.take() {
@@ -71,8 +71,8 @@ impl Iterator for Iter {
     }
 }
 
-impl IntoIterator for LineMapNode {
-    type Item = LineMapNode;
+impl IntoIterator for DirectiveMapperChain {
+    type Item = DirectiveMapperChain;
 
     type IntoIter = Iter;
 
@@ -81,8 +81,8 @@ impl IntoIterator for LineMapNode {
     }
 }
 
-impl IntoIterator for &LineMapNode {
-    type Item = LineMapNode;
+impl IntoIterator for &DirectiveMapperChain {
+    type Item = DirectiveMapperChain;
 
     type IntoIter = Iter;
 
@@ -91,21 +91,21 @@ impl IntoIterator for &LineMapNode {
     }
 }
 
-impl Deref for LineMapNode {
-    type Target = dyn LineMap;
+impl Deref for DirectiveMapperChain {
+    type Target = dyn DirectiveMapper;
 
     fn deref(&self) -> &Self::Target {
         &self.this.line_map
     }
 }
 
-impl AsRef<dyn LineMap + 'static> for LineMapNode {
-    fn as_ref(&self) -> &(dyn LineMap + 'static) {
+impl AsRef<dyn DirectiveMapper + 'static> for DirectiveMapperChain {
+    fn as_ref(&self) -> &(dyn DirectiveMapper + 'static) {
         &self.this.line_map
     }
 }
 
-impl Debug for LineMapNode {
+impl Debug for DirectiveMapperChain {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("LineMapNode")
             .field("line_map", &self.name())
