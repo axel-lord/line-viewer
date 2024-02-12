@@ -304,15 +304,15 @@ impl SourceAction {
                     return Ok(SourceAction::Push(source));
                 }
                 Err(directive) => {
-                    read.enqueue(position, directive);
+                    read.push(position, directive);
                 }
             },
             Directive::Empty => lines.push_empty(),
             Directive::Text(text) => lines.push_line(text),
 
             Directive::Multiple(parses) => {
-                for directive in parses {
-                    read.enqueue(position, directive);
+                for directive in parses.into_iter().rev() {
+                    read.push(position, directive);
                 }
             }
         };

@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, fmt::Debug};
+use std::fmt::Debug;
 
 use crate::{Directive, Result};
 
@@ -7,7 +7,7 @@ pub trait LineRead: Debug {
 }
 
 struct DynLineReadInt<LR: ?Sized> {
-    queue: VecDeque<(usize, Directive<'static>)>,
+    stack: Vec<(usize, Directive<'static>)>,
     debug: fn() -> &'static str,
     line_read: LR,
 }
@@ -28,31 +28,31 @@ impl DynLineRead {
         LR: 'static + LineRead,
     {
         let this = Box::new(DynLineReadInt {
-            queue: VecDeque::new(),
-            debug: || {
-                std::any::type_name::<LR>()
-            },
+            stack: Vec::new(),
+            debug: || std::any::type_name::<LR>(),
             line_read,
         });
 
         Self { this }
     }
 
-    pub fn enqueue(&mut self, line_nr: usize, directive: Directive<'static>) -> &mut Self {
-        self.this.queue.push_back((line_nr, directive));
+    pub fn push(&mut self, line_nr: usize, directive: Directive<'static>) -> &mut Self {
+        self.this.stack.push((line_nr, directive));
         self
     }
 }
 
 impl Debug for DynLineRead {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DynLineRead").field("line_read", &self.this).finish_non_exhaustive()
+        f.debug_struct("DynLineRead")
+            .field("line_read", &self.this)
+            .finish_non_exhaustive()
     }
 }
 
 impl LineRead for DynLineRead {
     fn read(&mut self) -> Result<(usize, Directive<'_>)> {
-        if let Some(res) = self.this.queue.pop_front() {
+        if let Some(res) = self.this.stack.pop() {
             Ok(res)
         } else {
             self.this.line_read.read()
