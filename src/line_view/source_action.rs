@@ -118,6 +118,11 @@ impl DirectiveMapper for Else {
     }
 }
 
+fn directive_debug(line: Directive<'_>) -> Directive<'_> {
+    eprintln!("{line:#?}");
+    line
+}
+
 impl<'lines> Lines<'lines> {
     fn builder(&self) -> line::Builder<line::Source, usize> {
         line::Builder::new()
@@ -194,7 +199,7 @@ impl SourceAction {
             directive
         };
 
-        match dbg!(directive) {
+        match directive {
             Directive::Noop | Directive::Comment(..) => {}
             Directive::Close => {
                 return Ok(SourceAction::Pop);
@@ -310,6 +315,10 @@ impl SourceAction {
                 for directive in parses.into_iter().rev() {
                     read.push(position, directive);
                 }
+            }
+            Directive::Debug => {
+                let prev = line_map.take();
+                *line_map = Some(DirectiveMapperChain::new(directive_debug, prev, false));
             }
         };
 

@@ -15,6 +15,7 @@ pub enum Directive<'line> {
     Watch,
     Then,
     Else,
+    Debug,
     EndMap {
         automatic: bool,
     },
