@@ -1,3 +1,4 @@
+#-debug using debug means most of the ignored lines will be shown in stderr
 #-title Ignore
 # Comments are not used as lines
 #
@@ -19,3 +20,5 @@ Anything after close will be ignored, since the file is dropped
 upon reaching it it is not possible to read more, unless the
 close directive was somehow ignored
 #-source and of course this applies to directives too
+#
+#-end not needed since the file closes here but nice anyway

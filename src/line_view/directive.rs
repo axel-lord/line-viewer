@@ -92,6 +92,8 @@ impl<'line> Directive<'line> {
 
             "watch" => Self::Watch,
 
+            "debug" => Self::Debug,
+
             other => {
                 return Err(format!("{other} is not a directive").into());
             }
