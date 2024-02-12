@@ -1,8 +1,5 @@
 use crate::{Directive, DirectiveSource, Result};
-use std::{
-    fmt::Debug,
-    io::BufRead,
-};
+use std::{fmt::Debug, io::BufRead};
 
 #[derive(Debug)]
 pub struct DirectiveReader<R>(R, usize, String);

@@ -54,6 +54,13 @@ impl DirectiveMapperChain {
     pub fn automatic(&self) -> bool {
         self.this.automatic
     }
+
+    pub fn apply<'d>(&self, mut directive: Directive<'d>) -> Directive<'d> {
+        for (depth, directive_map) in self.into_iter().enumerate() {
+            directive = directive_map.map(directive, depth);
+        }
+        directive
+    }
 }
 
 #[derive(Debug)]

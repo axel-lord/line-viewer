@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     line_view::{cmd::Cmd, line, Directive, PathSet, Source},
-    Line, DirectiveSource as _, Result,
+    DirectiveSource as _, Line, Result,
 };
 
 use super::{
@@ -189,11 +189,7 @@ impl SourceAction {
 
         // apply maps in reverse order
         let directive = if let Some(line_map) = line_map.as_ref() {
-            let mut directive = directive;
-            for (depth, line_map) in line_map.into_iter().enumerate() {
-                directive = line_map.map(directive, depth);
-            }
-            directive
+            line_map.apply(directive)
         } else {
             directive
         };

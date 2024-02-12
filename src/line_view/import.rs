@@ -58,12 +58,7 @@ impl<'line> Import<'line> {
     ) -> std::result::Result<Source, Directive<'static>> {
         let Self { file, kind } = self;
         match kind {
-            ImportKind::Source => source(
-                &file,
-                parent.dir,
-                parent.cmd,
-                parent.sourced,
-            ),
+            ImportKind::Source => source(&file, parent.dir, parent.cmd, parent.sourced),
             ImportKind::Import => import(&file, parent.dir, imported),
             ImportKind::Lines => lines(&file, parent.dir, parent.cmd),
         }

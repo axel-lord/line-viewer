@@ -9,8 +9,8 @@ pub use self::{
     line_view::{
         directive::Directive,
         directive_reader::DirectiveReader,
-        line::{Line, Source as LineSource},
         directive_source::{DirectiveSource, DirectiveStream},
+        line::{Line, Source as LineSource},
         source::Source,
         source_action::SourceAction,
         LineView,

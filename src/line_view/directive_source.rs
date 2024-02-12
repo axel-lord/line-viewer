@@ -12,13 +12,22 @@ struct Fused<T> {
     empty: Option<usize>,
 }
 
-impl<T> From<T> for Fused<T> where T: DirectiveSource {
+impl<T> From<T> for Fused<T>
+where
+    T: DirectiveSource,
+{
     fn from(value: T) -> Self {
-        Fused { line_read: value, empty: None }
+        Fused {
+            line_read: value,
+            empty: None,
+        }
     }
 }
 
-impl<T> DirectiveSource for Fused<T> where T: DirectiveSource {
+impl<T> DirectiveSource for Fused<T>
+where
+    T: DirectiveSource,
+{
     fn read(&mut self) -> Result<(usize, Directive<'_>)> {
         let Self { line_read, empty } = self;
         if let Some(size) = *empty {

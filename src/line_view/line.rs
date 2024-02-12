@@ -1,6 +1,7 @@
 use std::{
+    fmt::Display,
     path::Path,
-    sync::{Arc, RwLock}, fmt::Display,
+    sync::{Arc, RwLock},
 };
 
 use crate::{line_view::cmd::Cmd, Result};
@@ -174,6 +175,9 @@ impl Line {
     }
 
     pub fn execute(&self) -> Result {
-        self.cmd.read().unwrap().execute(self.position, self.source.clone(), [self.text()])
+        self.cmd
+            .read()
+            .unwrap()
+            .execute(self.position, self.source.clone(), [self.text()])
     }
 }
