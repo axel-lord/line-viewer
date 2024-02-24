@@ -13,7 +13,7 @@ use tap::Pipe;
 use crate::{
     escape_path,
     line_view::{line_map::DirectiveMapperChain, Cmd, PathSet},
-    Directive, DirectiveReader, DirectiveSource, DirectiveStream, PathExt, Result,
+    Directive, DirectiveReader, DirectiveSource, DirectiveStream, PathExt, Result, cmd,
 };
 
 type ParseResult<T> = std::result::Result<T, Cow<'static, str>>;
@@ -52,7 +52,7 @@ impl Watch {
 pub struct Source {
     pub read: DirectiveStream,
     pub path: Arc<Path>,
-    pub cmd: Arc<RwLock<Cmd>>,
+    pub cmd: cmd::Handle,
     pub sourced: Arc<RwLock<PathSet>>,
     pub dir: Arc<Path>,
     pub warning_watcher: Rc<RefCell<Watch>>,
@@ -60,7 +60,7 @@ pub struct Source {
 }
 
 impl Source {
-    pub fn new(path: Arc<Path>) -> Self {
+    pub fn new(path: Arc<Path>, cmd_directory: &mut cmd::Directory<Cmd>) -> Self {
         Self {
             read: DirectiveStream::new(NullReader),
             dir: {
@@ -70,7 +70,7 @@ impl Source {
             },
             path,
             sourced: Default::default(),
-            cmd: Default::default(),
+            cmd: cmd_directory.new_handle(),
             warning_watcher: Default::default(),
             line_map: None,
         }
@@ -80,7 +80,7 @@ impl Source {
         Self {
             read: DirectiveStream::new(NullReader),
             path: self.path.clone(),
-            cmd: self.cmd.clone(),
+            cmd: self.cmd,
             sourced: self.sourced.clone(),
             dir: self.dir.clone(),
             warning_watcher: self.warning_watcher.clone(),
@@ -88,17 +88,17 @@ impl Source {
         }
     }
 
-    pub fn open(path: Arc<Path>) -> Result<Self> {
+    pub fn open(path: Arc<Path>, cmd_directory: &mut cmd::Directory<Cmd>) -> Result<Self> {
         Ok(Source {
             read: File::open(&path)?
                 .pipe(BufReader::new)
                 .pipe(DirectiveReader::new)
                 .pipe(DirectiveStream::new),
-            ..Source::new(path)
+            ..Source::new(path, cmd_directory)
         })
     }
 
-    pub fn parse(line: &str, dir: &Path) -> ParseResult<Self> {
+    pub fn parse(line: &str, dir: &Path, cmd_directory: &mut cmd::Directory<Cmd>) -> ParseResult<Self> {
         let line = escape_path(line)?;
 
         let path = line.canonicalize_at(dir).map_err(|err| {
@@ -113,7 +113,7 @@ impl Source {
             return Err(Cow::from(format!("could not find {}", line.display())));
         }
 
-        Source::open(path.into())
+        Source::open(path.into(), cmd_directory)
             .map_err(|err| Cow::from(format!("could not create source, {err}")))
     }
 }

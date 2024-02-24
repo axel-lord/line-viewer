@@ -2,26 +2,19 @@ use std::{
     borrow::Cow,
     cell::RefCell,
     path::{Path, PathBuf},
-    sync::{Arc, RwLock},
+    sync::Arc,
 };
 
 use crate::{
-    line_view::{cmd::Cmd, line, Directive, PathSet, Source},
-    DirectiveSource as _, Line, Result,
+    cmd,
+    line_view::{line, Directive, PathSet, Source},
+    Cmd, DirectiveSource as _, Line, Result,
 };
 
 use super::{
     line_map::{DirectiveMapper, DirectiveMapperChain},
     source::Watch,
 };
-
-struct Lines<'lines> {
-    pub lines: &'lines mut Vec<Line>,
-    pub path: &'lines Arc<Path>,
-    pub cmd: &'lines Arc<RwLock<Cmd>>,
-    pub warning_watcher: &'lines RefCell<Watch>,
-    pub position: usize,
-}
 
 struct Then {
     warnings: Vec<String>,
@@ -123,6 +116,14 @@ fn directive_debug(line: Directive<'_>) -> Directive<'_> {
     line
 }
 
+struct Lines<'lines> {
+    pub lines: &'lines mut Vec<Line<cmd::Handle>>,
+    pub path: &'lines Arc<Path>,
+    pub cmd: cmd::Handle,
+    pub warning_watcher: &'lines RefCell<Watch>,
+    pub position: usize,
+}
+
 impl<'lines> Lines<'lines> {
     fn builder(&self) -> line::Builder<line::Source, usize> {
         line::Builder::new()
@@ -130,28 +131,36 @@ impl<'lines> Lines<'lines> {
             .position(self.position)
     }
 
-    fn push_warning(&mut self, text: Cow<'_, str>) {
+    fn push_warning(&mut self, text: Cow<'_, str>, cmd_directory: &mut cmd::Directory<Cmd>) {
         if let Watch::Watching { occured } = &mut *self.warning_watcher.borrow_mut() {
             occured.push(text.to_string())
         } else {
-            self.lines
-                .push(self.builder().warning().text(text.into()).build());
+            self.lines.push(
+                self.builder()
+                    .warning()
+                    .text(text.into())
+                    .build(cmd_directory),
+            );
         }
     }
-    fn push_subtitle(&mut self, text: Cow<'_, str>) {
-        self.lines
-            .push(self.builder().title().text(text.into()).build());
+    fn push_subtitle(&mut self, text: Cow<'_, str>, cmd_directory: &mut cmd::Directory<Cmd>) {
+        self.lines.push(
+            self.builder()
+                .title()
+                .text(text.into())
+                .build(cmd_directory),
+        );
     }
-    fn push_line(&mut self, text: Cow<'_, str>) {
+    fn push_line(&mut self, text: Cow<'_, str>, cmd_directory: &mut cmd::Directory<Cmd>) {
         self.lines.push(
             self.builder()
                 .text(text.into())
-                .cmd(Arc::clone(self.cmd))
-                .build(),
+                .cmd(self.cmd)
+                .build(cmd_directory),
         );
     }
-    fn push_empty(&mut self) {
-        self.lines.push(self.builder().build());
+    fn push_empty(&mut self, cmd_directory: &mut cmd::Directory<Cmd>) {
+        self.lines.push(self.builder().build(cmd_directory));
     }
 }
 
@@ -167,8 +176,9 @@ impl SourceAction {
     pub fn perform(
         source: &mut Source,
         imported: &mut PathSet,
-        lines: &mut Vec<Line>,
+        lines: &mut Vec<Line<cmd::Handle>>,
         title: &mut Option<String>,
+        cmd_directory: &mut cmd::Directory<Cmd>,
     ) -> Result<SourceAction> {
         let shallow = source.shallow();
         let Source {
@@ -188,7 +198,7 @@ impl SourceAction {
             lines,
             path,
             position,
-            cmd,
+            cmd: *cmd,
             warning_watcher,
         };
 
@@ -205,13 +215,13 @@ impl SourceAction {
                 return Ok(SourceAction::Pop);
             }
             Directive::Clean => {
-                *cmd = Arc::default();
+                *cmd = cmd_directory.new_handle();
             }
             Directive::Exe(exe) => {
-                cmd.write().unwrap().exe(PathBuf::from(exe.as_ref()));
+                cmd_directory[*cmd].exe(PathBuf::from(exe.as_ref()));
             }
             Directive::Arg(arg) => {
-                cmd.write().unwrap().arg(arg.into());
+                cmd_directory[*cmd].arg(arg.into());
             }
             Directive::Watch => {
                 let is_sleeping = warning_watcher.borrow().is_sleeping();
@@ -220,6 +230,7 @@ impl SourceAction {
                 } else {
                     lines.push_warning(
                         "watch called multiple times before else or then block".into(),
+                        cmd_directory,
                     );
                 }
             }
@@ -232,6 +243,7 @@ impl SourceAction {
                 } else {
                     lines.push_warning(
                         "then blocks need to be placed somewhere after a watch directive".into(),
+                        cmd_directory,
                     );
                 }
             }
@@ -244,11 +256,15 @@ impl SourceAction {
                 } else {
                     lines.push_warning(
                         "else blocks need to be placed somewhere after a watch directive".into(),
+                        cmd_directory,
                     );
                 }
             }
             Directive::DisplayWarnings => {
-                lines.push_warning("warnings can only be displayed in else blocks".into());
+                lines.push_warning(
+                    "warnings can only be displayed in else blocks".into(),
+                    cmd_directory,
+                );
             }
             Directive::IgnoreWarnings => {
                 fn ignore_warnings(directive: Directive<'_>) -> Directive<'_> {
@@ -276,21 +292,21 @@ impl SourceAction {
                         *line_map = line_map_ref.prev();
                     } else if automatic {
                         let msg = "EndMap directive was issued automatically whilst a manual end directive was required";
-                        lines.push_warning(msg.into());
+                        lines.push_warning(msg.into(), cmd_directory);
                     } else {
                         let msg = "end directive was given when an automatic EndMap directive was required";
-                        lines.push_warning(msg.into());
+                        lines.push_warning(msg.into(), cmd_directory);
                     }
                 } else if automatic {
                     let msg = "EndMap directive was issued automatically with no LineMap in use";
-                    lines.push_warning(msg.into());
+                    lines.push_warning(msg.into(), cmd_directory);
                 } else {
                     let msg = "end directive used with nothing to end";
-                    lines.push_warning(msg.into());
+                    lines.push_warning(msg.into(), cmd_directory);
                 }
             }
             Directive::Warning(warn) => {
-                lines.push_warning(warn);
+                lines.push_warning(warn, cmd_directory);
             }
             Directive::Title(text) => {
                 if title.is_none() {
@@ -298,18 +314,20 @@ impl SourceAction {
                 }
             }
             Directive::Subtitle(text) => {
-                lines.push_subtitle(text);
+                lines.push_subtitle(text, cmd_directory);
             }
-            Directive::Import(import) => match import.perform_import(shallow.shallow(), imported) {
-                Ok(source) => {
-                    return Ok(SourceAction::Push(source));
+            Directive::Import(import) => {
+                match import.perform_import(shallow.shallow(), imported, cmd_directory) {
+                    Ok(source) => {
+                        return Ok(SourceAction::Push(source));
+                    }
+                    Err(directive) => {
+                        read.push(position, directive);
+                    }
                 }
-                Err(directive) => {
-                    read.push(position, directive);
-                }
-            },
-            Directive::Empty => lines.push_empty(),
-            Directive::Text(text) => lines.push_line(text),
+            }
+            Directive::Empty => lines.push_empty(cmd_directory),
+            Directive::Text(text) => lines.push_line(text, cmd_directory),
 
             Directive::Multiple(parses) => {
                 for directive in parses.into_iter().rev() {

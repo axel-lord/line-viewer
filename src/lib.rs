@@ -1,3 +1,5 @@
+pub mod cmd;
+
 mod error;
 mod line_view;
 mod path_ext;
@@ -15,6 +17,7 @@ pub use self::{
         source_action::SourceAction,
         LineView,
     },
+    cmd::Cmd,
     path_ext::PathExt,
 };
 pub fn escape_path(line: &str) -> std::result::Result<PathBuf, &'static str> {

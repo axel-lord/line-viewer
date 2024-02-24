@@ -15,7 +15,7 @@
 - [x] Add some values to environment when executing
 - [ ] Add lines created by executing a command
 - [x] Add lines depending on success of next or previous line creation, edit: included in waring handling
-- [ ] Simplify creation and storage of commands and lines to eliminate locks
+- [x] Simplify creation and storage of commands and lines to eliminate locks
 - [x] Merge Directive and ParsedLine
 - [ ] Add file editor
 - [ ] Split up into workspace

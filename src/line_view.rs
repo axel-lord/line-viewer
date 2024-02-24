@@ -1,4 +1,3 @@
-pub(crate) mod cmd;
 pub(crate) mod directive;
 pub(crate) mod directive_reader;
 pub(crate) mod directive_source;
@@ -15,8 +14,12 @@ use std::{
 
 use rustc_hash::FxHashSet;
 
-use self::{cmd::Cmd, line::Line, source::Source};
-use crate::{line_view::directive::Directive, Result};
+use self::{line::Line, source::Source};
+use crate::{
+    cmd::{self, Cmd},
+    line_view::directive::Directive,
+    Result,
+};
 
 type PathSet = FxHashSet<Arc<Path>>;
 
@@ -25,7 +28,7 @@ pub struct LineView {
     source: PathBuf,
     imported: PathSet,
     title: String,
-    lines: Vec<Line>,
+    lines: Vec<Line<Arc<Cmd>>>,
 }
 
 impl LineView {
@@ -39,8 +42,9 @@ impl LineView {
 
         let mut lines = Vec::new();
         let mut title = None;
+        let mut cmd_directory = cmd::Directory::new();
 
-        let root = Source::open(Arc::from(path.as_path()))?;
+        let root = Source::open(Arc::from(path.as_path()), &mut cmd_directory)?;
         imported.insert(Arc::clone(&root.path));
         sources.push(root);
 
@@ -50,6 +54,7 @@ impl LineView {
                 &mut imported,
                 &mut lines,
                 &mut title,
+                &mut cmd_directory,
             )? {
                 source_action::SourceAction::Noop => {}
                 source_action::SourceAction::Pop => {
@@ -64,6 +69,14 @@ impl LineView {
         }
 
         let title = title.unwrap_or_else(|| path.display().to_string());
+
+        let cmd_directory = cmd_directory.map_to_arc();
+        let lines = lines
+            .into_iter()
+            .map(|line| {
+                line.map_to_arc_cmd(&cmd_directory)
+            })
+            .collect();
 
         Ok(Self {
             source: path.to_path_buf(),
@@ -103,15 +116,15 @@ impl LineView {
         self.into_iter()
     }
 
-    pub fn get(&self, index: usize) -> Option<&Line> {
+    pub fn get(&self, index: usize) -> Option<&Line<Arc<Cmd>>> {
         self.lines.get(index)
     }
 }
 
 impl IntoIterator for LineView {
-    type Item = Line;
+    type Item = Line<Arc<Cmd>>;
 
-    type IntoIter = <Vec<Line> as IntoIterator>::IntoIter;
+    type IntoIter = <Vec<Line<Arc<Cmd>>> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.lines.into_iter()
@@ -119,9 +132,9 @@ impl IntoIterator for LineView {
 }
 
 impl<'a> IntoIterator for &'a LineView {
-    type Item = &'a Line;
+    type Item = &'a Line<Arc<Cmd>>;
 
-    type IntoIter = <&'a Vec<Line> as IntoIterator>::IntoIter;
+    type IntoIter = <&'a Vec<Line<Arc<Cmd>>> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.lines.iter()
@@ -129,9 +142,9 @@ impl<'a> IntoIterator for &'a LineView {
 }
 
 impl<'a> IntoIterator for &'a mut LineView {
-    type Item = &'a mut Line;
+    type Item = &'a mut Line<Arc<Cmd>>;
 
-    type IntoIter = <&'a mut Vec<Line> as IntoIterator>::IntoIter;
+    type IntoIter = <&'a mut Vec<Line<Arc<Cmd>>> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.lines.iter_mut()

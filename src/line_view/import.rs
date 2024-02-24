@@ -4,7 +4,11 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use crate::line_view::{cmd::Cmd, source::Source, PathSet};
+use crate::{
+    cmd,
+    line_view::{source::Source, PathSet},
+    Cmd,
+};
 
 use super::{directive::Directive, line_map::DirectiveMapperChain};
 
@@ -54,20 +58,27 @@ impl<'line> Import<'line> {
         self,
         parent: Source,
         imported: &mut PathSet,
-        // ctx: ImportCtx<'_>,
+        cmd_directory: &mut cmd::Directory<Cmd>,
     ) -> std::result::Result<Source, Directive<'static>> {
         let Self { file, kind } = self;
         match kind {
-            ImportKind::Source => source(&file, parent.dir, parent.cmd, parent.sourced),
-            ImportKind::Import => import(&file, parent.dir, imported),
-            ImportKind::Lines => lines(&file, parent.dir, parent.cmd),
+            ImportKind::Source => {
+                source(&file, parent.dir, parent.cmd, parent.sourced, cmd_directory)
+            }
+            ImportKind::Import => import(&file, parent.dir, imported, cmd_directory),
+            ImportKind::Lines => lines(&file, parent.dir, parent.cmd, cmd_directory),
         }
         .ok_or_else(|| Directive::Warning(format!("could not source/import/lines {file}").into()))
     }
 }
 
-fn import(line: &str, dir: Arc<Path>, imported: &mut PathSet) -> Option<Source> {
-    let source = match Source::parse(line, &dir) {
+fn import(
+    line: &str,
+    dir: Arc<Path>,
+    imported: &mut PathSet,
+    cmd_directory: &mut cmd::Directory<Cmd>,
+) -> Option<Source> {
+    let source = match Source::parse(line, &dir, cmd_directory) {
         Ok(source) => source,
         Err(err) => {
             eprintln!("{err}");
@@ -88,10 +99,11 @@ fn import(line: &str, dir: Arc<Path>, imported: &mut PathSet) -> Option<Source> 
 fn source(
     line: &str,
     dir: Arc<Path>,
-    cmd: Arc<RwLock<Cmd>>,
+    cmd: cmd::Handle,
     sourced: Arc<RwLock<PathSet>>,
+    cmd_directory: &mut cmd::Directory<Cmd>,
 ) -> Option<Source> {
-    let source = match Source::parse(line, &dir) {
+    let source = match Source::parse(line, &dir, cmd_directory) {
         Ok(source) => Source {
             // sources gain source context of parent, while imports get their own
             sourced: Arc::clone(&sourced),
@@ -128,9 +140,14 @@ fn skip_directives(parsed: Directive<'_>) -> Directive<'_> {
     }
 }
 
-fn lines(line: &str, dir: Arc<Path>, cmd: Arc<RwLock<Cmd>>) -> Option<Source> {
+fn lines(
+    line: &str,
+    dir: Arc<Path>,
+    cmd: cmd::Handle,
+    cmd_directory: &mut cmd::Directory<Cmd>,
+) -> Option<Source> {
     // lines can be sourced however much is wanted since they cannot create cycles
-    match Source::parse(line, &dir) {
+    match Source::parse(line, &dir, cmd_directory) {
         Ok(source) => Some(Source {
             // lines inherit command from parent
             cmd,

@@ -1,10 +1,6 @@
-use std::{
-    fmt::Display,
-    path::Path,
-    sync::{Arc, RwLock},
-};
+use std::{fmt::Display, path::Path, sync::Arc};
 
-use crate::{line_view::cmd::Cmd, Result};
+use crate::{cmd, Cmd, Result};
 
 #[derive(Debug, Clone, Copy, Default)]
 enum Kind {
@@ -44,7 +40,7 @@ pub struct Builder<T, P> {
     source: T,
     position: P,
     text: String,
-    cmd: Option<Arc<RwLock<Cmd>>>,
+    cmd: Option<cmd::Handle>,
     kind: Kind,
 }
 
@@ -113,7 +109,7 @@ impl<T, P> Builder<T, P> {
         }
     }
 
-    pub fn cmd(self, cmd: Arc<RwLock<Cmd>>) -> Self {
+    pub fn cmd(self, cmd: cmd::Handle) -> Self {
         Self {
             cmd: Some(cmd),
             ..self
@@ -122,7 +118,7 @@ impl<T, P> Builder<T, P> {
 }
 
 impl Builder<Source, usize> {
-    pub fn build(self) -> Line {
+    pub fn build(self, cmd_directory: &mut cmd::Directory<Cmd>) -> Line<cmd::Handle> {
         let Self {
             source,
             position,
@@ -134,22 +130,22 @@ impl Builder<Source, usize> {
             text,
             source,
             position,
-            cmd: cmd.unwrap_or_default(),
+            cmd: cmd.unwrap_or_else(|| cmd_directory.new_handle()),
             kind,
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct Line {
+pub struct Line<C> {
     text: String,
     source: Source,
     position: usize,
-    cmd: Arc<RwLock<Cmd>>,
+    cmd: C,
     kind: Kind,
 }
 
-impl Line {
+impl<C> Line<C> {
     pub fn source(&self) -> &Source {
         &self.source
     }
@@ -162,10 +158,6 @@ impl Line {
         &self.text
     }
 
-    pub fn has_command(&self) -> bool {
-        !self.cmd.read().unwrap().is_empty()
-    }
-
     pub fn is_title(&self) -> bool {
         matches!(self.kind, Kind::Title)
     }
@@ -173,11 +165,34 @@ impl Line {
     pub fn is_warning(&self) -> bool {
         matches!(self.kind, Kind::Warning)
     }
+}
+
+impl Line<cmd::Handle> {
+    pub fn map_to_arc_cmd(self, cmd_directory: &cmd::Directory<Arc<Cmd>>) -> Line<Arc<Cmd>> {
+        let Self {
+            text,
+            source,
+            position,
+            cmd,
+            kind,
+        } = self;
+        Line::<Arc<Cmd>> {
+            text,
+            source,
+            position,
+            kind,
+            cmd: cmd_directory[cmd].clone(),
+        }
+    }
+}
+
+impl Line<Arc<Cmd>> {
+    pub fn has_command(&self) -> bool {
+        !self.cmd.is_empty()
+    }
 
     pub fn execute(&self) -> Result {
         self.cmd
-            .read()
-            .unwrap()
             .execute(self.position, self.source.clone(), [self.text()])
     }
 }
