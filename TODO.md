@@ -18,3 +18,7 @@
 - [ ] Simplify creation and storage of commands and lines to eliminate locks
 - [x] Merge Directive and ParsedLine
 - [ ] Add file editor
+- [ ] Split up into workspace
+- [ ] Add traits to provide file path resolution and command execution
+- [ ] Add attribute/flag block as directive
+- [ ] Split out arc linked list into separate type from map
