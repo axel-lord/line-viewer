@@ -1,38 +1,6 @@
-[package]
-name = "line-viewer"
-version = "2.0.0"
-authors = ["Axel Lord"]
-edition = "2021"
-license = "MIT"
-build = "build.rs"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-anyhow = "1.0.75"
-clap = { version = "4.4.0", features = ["derive"] }
-home = "0.5.9"
-nfde = "0.0.8"
-notify = "6.1.1"
-rustc-hash = "1.1.0"
-slint = "1.3"
-tap = "1.0.1"
-thiserror = "1.0.56"
-
-[build-dependencies]
-resvg = "0.35.0"
-slint-build = "1.3"
-
-[target.'cfg(windows)'.build-dependencies]
-ico = "0.3"
-winres = "0.1"
-
-[lints.rust]
-let_underscore = "warn"
-future_incompatible = "warn"
-nonstandard_style = "warn"
-missing_copy_implementations = "warn"
-missing_debug_implementations = "warn"
-
-[lints.clippy]
-all = "warn"
+[workspace]
+members = [
+	"line-view", "line-viewer-cli",
+	"line-viewer-slint",
+]
+resolver = "2"

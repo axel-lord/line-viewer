@@ -10,7 +10,7 @@ use std::{
 
 use anyhow::{anyhow, Result};
 use clap::{ArgGroup, Parser};
-use line_viewer::LineView;
+use line_view::LineView;
 use notify::{Event, EventKind, Watcher};
 use slint::{ModelRc, SharedString, VecModel};
 use tap::Pipe;
