@@ -90,10 +90,6 @@ impl LineView {
         &self.title
     }
 
-    pub fn lines(&self) -> impl Iterator<Item = &str> {
-        self.lines.iter().map(Line::text)
-    }
-
     pub fn source(&self) -> &Path {
         &self.source
     }
@@ -112,6 +108,23 @@ impl LineView {
 
     pub fn get(&self, index: usize) -> Option<&Line<Arc<Cmd>>> {
         self.lines.get(index)
+    }
+}
+
+impl AsRef<LineView> for LineView {
+    fn as_ref(&self) -> &LineView {
+        self
+    }
+}
+
+impl<I> std::ops::Index<I> for LineView
+where
+    Vec<Line<Arc<Cmd>>>: std::ops::Index<I>,
+{
+    type Output = <Vec<Line<Arc<Cmd>>> as std::ops::Index<I>>::Output;
+
+    fn index(&self, index: I) -> &Self::Output {
+        &self.lines[index]
     }
 }
 
