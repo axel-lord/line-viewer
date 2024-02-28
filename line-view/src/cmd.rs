@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, path::PathBuf, sync::Arc, usize};
 
-use crate::{Error, LineSource, Result};
+use crate::{line_view::line::Source as LineSource, Error, Result};
 
 #[derive(Debug, Clone, Default)]
 pub struct Cmd {

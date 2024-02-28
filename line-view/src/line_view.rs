@@ -61,10 +61,6 @@ impl LineView {
                     dbg!(sources.pop());
                 }
                 source_action::SourceAction::Push(source) => sources.push(source),
-                source_action::SourceAction::Extend(source_list) => {
-                    sources.reserve(source_list.len());
-                    sources.extend(source_list);
-                }
             }
         }
 
@@ -73,9 +69,7 @@ impl LineView {
         let cmd_directory = cmd_directory.map_to_arc();
         let lines = lines
             .into_iter()
-            .map(|line| {
-                line.map_to_arc_cmd(&cmd_directory)
-            })
+            .map(|line| line.map_to_arc_cmd(&cmd_directory))
             .collect();
 
         Ok(Self {

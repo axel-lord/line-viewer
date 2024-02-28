@@ -11,9 +11,15 @@ use std::{
 use tap::Pipe;
 
 use crate::{
-    escape_path,
-    line_view::{line_map::DirectiveMapperChain, Cmd, PathSet},
-    Directive, DirectiveReader, DirectiveSource, DirectiveStream, PathExt, Result, cmd,
+    cmd, escape_path,
+    line_view::{
+        directive_reader::DirectiveReader,
+        directive_source::{DirectiveSource, DirectiveStream},
+        line_map::DirectiveMapperChain,
+        Cmd, PathSet,
+    },
+    path_ext::PathExt as _,
+    Directive, Result,
 };
 
 type ParseResult<T> = std::result::Result<T, Cow<'static, str>>;
@@ -98,7 +104,11 @@ impl Source {
         })
     }
 
-    pub fn parse(line: &str, dir: &Path, cmd_directory: &mut cmd::Directory<Cmd>) -> ParseResult<Self> {
+    pub fn parse(
+        line: &str,
+        dir: &Path,
+        cmd_directory: &mut cmd::Directory<Cmd>,
+    ) -> ParseResult<Self> {
         let line = escape_path(line)?;
 
         let path = line.canonicalize_at(dir).map_err(|err| {

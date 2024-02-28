@@ -7,8 +7,12 @@ use std::{
 
 use crate::{
     cmd,
-    line_view::{line, Directive, PathSet, Source},
-    Cmd, DirectiveSource as _, Line, Result,
+    line_view::{
+        directive_source::DirectiveSource,
+        line::{self, Line},
+        Directive, PathSet, Source,
+    },
+    Cmd, Result,
 };
 
 use super::{
@@ -169,7 +173,6 @@ pub enum SourceAction {
     Noop,
     Pop,
     Push(Source),
-    Extend(Vec<Source>),
 }
 
 impl SourceAction {

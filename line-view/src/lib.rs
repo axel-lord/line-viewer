@@ -1,4 +1,8 @@
-pub mod cmd;
+mod cmd;
+mod error;
+mod line_view;
+mod path_ext;
+
 pub mod provide {
     pub trait Read {
         type Err;
@@ -21,27 +25,14 @@ pub mod provide {
     }
 }
 
-mod error;
-mod line_view;
-mod path_ext;
-
-use std::path::PathBuf;
-
 pub use self::{
     cmd::Cmd,
     error::Error,
-    line_view::{
-        directive::Directive,
-        directive_reader::DirectiveReader,
-        directive_source::{DirectiveSource, DirectiveStream},
-        line::{Line, Source as LineSource},
-        source::Source,
-        source_action::SourceAction,
-        LineView,
-    },
-    path_ext::PathExt,
+    line_view::{directive::Directive, LineView},
 };
-pub fn escape_path(line: &str) -> std::result::Result<PathBuf, &'static str> {
+
+use std::path::PathBuf;
+fn escape_path(line: &str) -> std::result::Result<PathBuf, &'static str> {
     const HOME_PREFIX: &str = "~/";
 
     Ok(match line.strip_prefix(HOME_PREFIX) {
