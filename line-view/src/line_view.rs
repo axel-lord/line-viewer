@@ -1,23 +1,20 @@
-pub(crate) mod directive;
-pub(crate) mod directive_reader;
-pub(crate) mod directive_source;
-pub(crate) mod import;
-pub(crate) mod line;
-pub(crate) mod line_map;
-pub(crate) mod source;
-pub(crate) mod source_action;
+mod directive_reader;
+mod directive_source;
+mod import;
+mod line_map;
+mod source;
+mod source_action;
 
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+pub(crate) mod directive;
+pub(crate) mod line;
+
+use std::{path::Path, sync::Arc};
 
 use rustc_hash::FxHashSet;
 
-use self::{line::Line, source::Source};
 use crate::{
     cmd::{self, Cmd},
-    line_view::directive::Directive,
+    line_view::{directive::Directive, line::Line, source::Source},
     Result,
 };
 
@@ -25,7 +22,6 @@ type PathSet = FxHashSet<Arc<Path>>;
 
 #[derive(Debug, Clone, Default)]
 pub struct LineView {
-    source: PathBuf,
     imported: PathSet,
     title: String,
     lines: Vec<Line<Arc<Cmd>>>,
@@ -73,25 +69,14 @@ impl LineView {
             .collect();
 
         Ok(Self {
-            source: path.to_path_buf(),
             imported,
             lines,
             title,
         })
     }
 
-    pub fn reload(&mut self) -> Result {
-        let new = Self::read(self.source())?;
-        *self = new;
-        Ok(())
-    }
-
     pub fn title(&self) -> &str {
         &self.title
-    }
-
-    pub fn source(&self) -> &Path {
-        &self.source
     }
 
     pub fn all_sources(&self) -> impl Iterator<Item = &Path> {

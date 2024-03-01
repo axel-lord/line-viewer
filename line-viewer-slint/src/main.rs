@@ -118,6 +118,7 @@ fn run(file_path: &Path) -> Result<()> {
             let view_handle = Arc::downgrade(&view);
             let lock_handle = Arc::downgrade(&lock);
             let watcher_handle = Arc::downgrade(&watcher);
+            let file_path = file_path.to_path_buf();
             move || {
                 // Update lock
                 {
@@ -136,11 +137,13 @@ fn run(file_path: &Path) -> Result<()> {
 
                 // Reload view
                 {
-                    let mut view = view.write().unwrap();
-                    if let Err(err) = view.reload() {
+                    match LineView::read(&file_path) {
+                        Ok(v) => *view.write().unwrap() = v,
+                        Err(err) => {
                         println!("{err}");
                         return;
-                    };
+                        },
+                    }
                 }
 
                 let view = view.read().unwrap();
