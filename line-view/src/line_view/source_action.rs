@@ -1,7 +1,7 @@
 use std::{
     borrow::Cow,
     cell::RefCell,
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::Arc,
 };
 
@@ -12,7 +12,7 @@ use crate::{
         line::{self, Line},
         Directive, PathSet, Source,
     },
-    Cmd, Result,
+    Cmd, Result, provide,
 };
 
 use super::{
@@ -122,7 +122,7 @@ fn directive_debug(line: Directive<'_>) -> Directive<'_> {
 
 struct Lines<'lines> {
     pub lines: &'lines mut Vec<Line<cmd::Handle>>,
-    pub path: &'lines Arc<Path>,
+    pub path: &'lines Arc<str>,
     pub cmd: cmd::Handle,
     pub warning_watcher: &'lines RefCell<Watch>,
     pub position: usize,
@@ -182,6 +182,7 @@ impl SourceAction {
         lines: &mut Vec<Line<cmd::Handle>>,
         title: &mut Option<String>,
         cmd_directory: &mut cmd::Directory<Cmd>,
+        provider: impl provide::Read,
     ) -> Result<SourceAction> {
         let shallow = source.shallow();
         let Source {
@@ -320,7 +321,7 @@ impl SourceAction {
                 lines.push_subtitle(text, cmd_directory);
             }
             Directive::Import(import) => {
-                match import.perform_import(shallow.shallow(), imported, cmd_directory) {
+                match import.perform_import(shallow.shallow(), imported, cmd_directory, &provider) {
                     Ok(source) => {
                         return Ok(SourceAction::Push(source));
                     }

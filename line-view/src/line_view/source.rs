@@ -1,7 +1,6 @@
 use std::{
     borrow::Cow,
     cell::RefCell,
-    fs::File,
     io::BufReader,
     path::Path,
     rc::Rc,
@@ -19,7 +18,7 @@ use crate::{
         Cmd, PathSet,
     },
     path_ext::PathExt as _,
-    Directive, Result,
+    Directive, Result, provide,
 };
 
 type ParseResult<T> = std::result::Result<T, Cow<'static, str>>;
@@ -57,22 +56,22 @@ impl Watch {
 #[derive(Debug)]
 pub struct Source {
     pub read: DirectiveStream,
-    pub path: Arc<Path>,
+    pub path: Arc<str>,
     pub cmd: cmd::Handle,
     pub sourced: Arc<RwLock<PathSet>>,
-    pub dir: Arc<Path>,
+    pub dir: Arc<str>,
     pub warning_watcher: Rc<RefCell<Watch>>,
     pub line_map: Option<DirectiveMapperChain>,
 }
 
 impl Source {
-    pub fn new(path: Arc<Path>, cmd_directory: &mut cmd::Directory<Cmd>) -> Self {
+    pub fn new(path: Arc<str>, cmd_directory: &mut cmd::Directory<Cmd>) -> Self {
         Self {
             read: DirectiveStream::new(NullReader),
             dir: {
-                let mut dir = path.to_path_buf();
+                let mut dir = AsRef::<Path>::as_ref(path.as_ref()).to_path_buf();
                 dir.pop();
-                dir.into()
+                dir.to_string_lossy().into()
             },
             path,
             sourced: Default::default(),
@@ -94,9 +93,9 @@ impl Source {
         }
     }
 
-    pub fn open(path: Arc<Path>, cmd_directory: &mut cmd::Directory<Cmd>) -> Result<Self> {
+    pub fn open(path: Arc<str>, cmd_directory: &mut cmd::Directory<Cmd>, provider: impl provide::Read) -> Result<Self> {
         Ok(Source {
-            read: File::open(&path)?
+            read: provider.provide(path.as_ref())?
                 .pipe(BufReader::new)
                 .pipe(DirectiveReader::new)
                 .pipe(DirectiveStream::new),
@@ -106,12 +105,13 @@ impl Source {
 
     pub fn parse(
         line: &str,
-        dir: &Path,
+        dir: &str,
         cmd_directory: &mut cmd::Directory<Cmd>,
+        provider: impl provide::Read,
     ) -> ParseResult<Self> {
         let line = escape_path(line)?;
 
-        let path = line.canonicalize_at(dir).map_err(|err| {
+        let path = line.canonicalize_at(dir.as_ref()).map_err(|err| {
             Cow::Owned(format!(
                 "could not canonicalize path, {}, {err}",
                 line.display()
@@ -123,7 +123,7 @@ impl Source {
             return Err(Cow::from(format!("could not find {}", line.display())));
         }
 
-        Source::open(path.into(), cmd_directory)
+        Source::open(path.to_string_lossy().into(), cmd_directory, provider)
             .map_err(|err| Cow::from(format!("could not create source, {err}")))
     }
 }

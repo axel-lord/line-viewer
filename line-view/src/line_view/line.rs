@@ -1,4 +1,4 @@
-use std::{fmt::Display, path::Path, sync::Arc};
+use std::{fmt::Display, sync::Arc};
 
 use crate::{cmd, Cmd, Result};
 
@@ -12,25 +12,25 @@ enum Kind {
 
 #[derive(Debug, Clone)]
 pub enum Source {
-    File(Arc<Path>),
+    File(Arc<str>),
 }
 
 impl Display for Source {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Source::File(src) => write!(f, "FILE:{}", src.display()),
+            Source::File(src) => write!(f, "FILE:{}", src),
         }
     }
 }
 
-impl From<Arc<Path>> for Source {
-    fn from(value: Arc<Path>) -> Self {
+impl From<Arc<str>> for Source {
+    fn from(value: Arc<str>) -> Self {
         Self::File(value)
     }
 }
 
-impl From<&Arc<Path>> for Source {
-    fn from(value: &Arc<Path>) -> Self {
+impl From<&Arc<str>> for Source {
+    fn from(value: &Arc<str>) -> Self {
         Self::File(Arc::clone(value))
     }
 }

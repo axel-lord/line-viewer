@@ -11,7 +11,10 @@ struct Cli {
 
 fn main() -> line_view::Result {
     let Cli { file_path } = Cli::parse();
-    let view = line_view::LineView::read(&file_path)?;
+    let view = line_view::LineView::read(
+        file_path.to_string_lossy(),
+        line_view::provide::PathReadProvider,
+    )?;
 
     for line in &view {
         if line.is_title() {

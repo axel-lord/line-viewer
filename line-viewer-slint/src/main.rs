@@ -84,7 +84,10 @@ fn create_watcher(
 }
 
 fn run(file_path: &Path) -> Result<()> {
-    let view = LineView::read(file_path)?;
+    let view = LineView::read(
+        file_path.to_string_lossy(),
+        line_view::provide::PathReadProvider,
+    )?;
 
     let ui = AppWindow::new()?;
     let lock = Arc::new(Mutex::new(false));
@@ -137,12 +140,15 @@ fn run(file_path: &Path) -> Result<()> {
 
                 // Reload view
                 {
-                    match LineView::read(&file_path) {
+                    match LineView::read(
+                        file_path.to_string_lossy(),
+                        line_view::provide::PathReadProvider,
+                    ) {
                         Ok(v) => *view.write().unwrap() = v,
                         Err(err) => {
-                        println!("{err}");
-                        return;
-                        },
+                            println!("{err}");
+                            return;
+                        }
                     }
                 }
 

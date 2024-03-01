@@ -15,22 +15,21 @@ use rustc_hash::FxHashSet;
 use crate::{
     cmd::{self, Cmd},
     line_view::{directive::Directive, line::Line, source::Source},
-    Result,
+    provide, Result,
 };
 
-type PathSet = FxHashSet<Arc<Path>>;
+type PathSet = FxHashSet<Arc<str>>;
 
 #[derive(Debug, Clone, Default)]
 pub struct LineView {
-    imported: PathSet,
     title: String,
     lines: Vec<Line<Arc<Cmd>>>,
 }
 
 impl LineView {
-    pub fn read(path: &Path) -> Result<Self> {
+    pub fn read(path: impl Into<Arc<str>>, read_provider: impl provide::Read) -> Result<Self> {
         // clean path
-        let path = path.canonicalize()?;
+        let path = path.into();
 
         // setup stack, and source set
         let mut sources = Vec::new();
@@ -40,7 +39,7 @@ impl LineView {
         let mut title = None;
         let mut cmd_directory = cmd::Directory::new();
 
-        let root = Source::open(Arc::from(path.as_path()), &mut cmd_directory)?;
+        let root = Source::open(path.clone(), &mut cmd_directory, &read_provider)?;
         imported.insert(Arc::clone(&root.path));
         sources.push(root);
 
@@ -51,6 +50,7 @@ impl LineView {
                 &mut lines,
                 &mut title,
                 &mut cmd_directory,
+                &read_provider,
             )? {
                 source_action::SourceAction::Noop => {}
                 source_action::SourceAction::Pop => {
@@ -60,7 +60,7 @@ impl LineView {
             }
         }
 
-        let title = title.unwrap_or_else(|| path.display().to_string());
+        let title = title.unwrap_or_else(|| path.to_string());
 
         let cmd_directory = cmd_directory.map_to_arc();
         let lines = lines
@@ -68,11 +68,7 @@ impl LineView {
             .map(|line| line.map_to_arc_cmd(&cmd_directory))
             .collect();
 
-        Ok(Self {
-            imported,
-            lines,
-            title,
-        })
+        Ok(Self { lines, title })
     }
 
     pub fn title(&self) -> &str {
@@ -80,7 +76,7 @@ impl LineView {
     }
 
     pub fn all_sources(&self) -> impl Iterator<Item = &Path> {
-        self.imported.iter().map(|i| i.as_ref())
+        None::<&Path>.into_iter()
     }
 
     pub fn iter(&self) -> <&Self as IntoIterator>::IntoIter {
