@@ -3,6 +3,8 @@
 slint::include_modules!();
 
 use std::{
+    cell::RefCell,
+    collections::HashSet,
     path::{Path, PathBuf},
     rc::Rc,
     sync::{atomic::AtomicUsize, Arc, Mutex, RwLock, Weak},
@@ -10,7 +12,10 @@ use std::{
 
 use anyhow::{anyhow, Result};
 use clap::{ArgGroup, Parser};
-use line_view::LineView;
+use line_view::{
+    provide::{self, PathReadProvider},
+    LineView,
+};
 use notify::{Event, EventKind, Watcher};
 use slint::{ModelRc, SharedString, VecModel};
 use tap::Pipe;
@@ -53,9 +58,28 @@ fn lines(view: &LineView) -> ModelRc<Line> {
         .pipe(vec_to_model_rc)
 }
 
+#[derive(Debug, Default)]
+struct PathReadProviderWrap(PathReadProvider, Rc<RefCell<HashSet<PathBuf>>>);
+impl provide::Read for PathReadProviderWrap {
+    type BufRead = <provide::PathReadProvider as provide::Read>::BufRead;
+
+    fn provide(&self, from: &str) -> line_view::Result<Self::BufRead> {
+        let Self(provider, path_set) = self;
+        let reader = provider.provide(from)?;
+        path_set.borrow_mut().insert(PathBuf::from(from));
+        Ok(reader)
+    }
+}
+
+impl From<&Rc<RefCell<HashSet<PathBuf>>>> for PathReadProviderWrap {
+    fn from(value: &Rc<RefCell<HashSet<PathBuf>>>) -> Self {
+        Self(PathReadProvider, value.clone())
+    }
+}
+
 fn create_watcher(
     lock_handle: Weak<Mutex<bool>>,
-    view: &LineView,
+    imported: &HashSet<PathBuf>,
 ) -> Result<notify::RecommendedWatcher> {
     static WATCHER_COUNT: AtomicUsize = AtomicUsize::new(0);
     let id = WATCHER_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -76,7 +100,7 @@ fn create_watcher(
         }
     })?;
 
-    for source in view.all_sources() {
+    for source in imported {
         drop(watcher.watch(source, notify::RecursiveMode::NonRecursive));
     }
 
@@ -84,16 +108,15 @@ fn create_watcher(
 }
 
 fn run(file_path: &Path) -> Result<()> {
-    let view = LineView::read(
-        file_path.to_string_lossy(),
-        line_view::provide::PathReadProvider,
-    )?;
+    let provider = PathReadProviderWrap::default();
+    let path_set = provider.1.clone();
+    let view = LineView::read(file_path.to_string_lossy(), provider)?;
 
     let ui = AppWindow::new()?;
     let lock = Arc::new(Mutex::new(false));
     let watcher = Arc::new(Mutex::new(Some(create_watcher(
         Arc::downgrade(&lock),
-        &view,
+        &path_set.borrow(),
     )?)));
 
     let view = Arc::new(RwLock::new(view));
@@ -122,6 +145,7 @@ fn run(file_path: &Path) -> Result<()> {
             let lock_handle = Arc::downgrade(&lock);
             let watcher_handle = Arc::downgrade(&watcher);
             let file_path = file_path.to_path_buf();
+            let path_set = path_set.clone();
             move || {
                 // Update lock
                 {
@@ -140,10 +164,7 @@ fn run(file_path: &Path) -> Result<()> {
 
                 // Reload view
                 {
-                    match LineView::read(
-                        file_path.to_string_lossy(),
-                        line_view::provide::PathReadProvider,
-                    ) {
+                    match LineView::read(file_path.to_string_lossy(), PathReadProviderWrap::from(&path_set)) {
                         Ok(v) => *view.write().unwrap() = v,
                         Err(err) => {
                             println!("{err}");
@@ -159,7 +180,7 @@ fn run(file_path: &Path) -> Result<()> {
                 let watcher = watcher_handle.upgrade().unwrap();
                 let mut watcher = watcher.lock().unwrap();
 
-                if let Ok(new_watcher) = create_watcher(lock_handle.clone(), &view) {
+                if let Ok(new_watcher) = create_watcher(lock_handle.clone(), &path_set.borrow()) {
                     println!("updated watcher");
                     *watcher = Some(new_watcher);
                 }

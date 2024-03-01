@@ -14,7 +14,7 @@ impl<P> self::Read for &P where P: self::Read {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct PathReadProvider;
 impl self::Read for PathReadProvider {
     type BufRead = std::io::BufReader<std::fs::File>;

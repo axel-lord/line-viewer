@@ -8,7 +8,7 @@ mod source_action;
 pub(crate) mod directive;
 pub(crate) mod line;
 
-use std::{path::Path, sync::Arc};
+use std::sync::Arc;
 
 use rustc_hash::FxHashSet;
 
@@ -73,10 +73,6 @@ impl LineView {
 
     pub fn title(&self) -> &str {
         &self.title
-    }
-
-    pub fn all_sources(&self) -> impl Iterator<Item = &Path> {
-        None::<&Path>.into_iter()
     }
 
     pub fn iter(&self) -> <&Self as IntoIterator>::IntoIter {
