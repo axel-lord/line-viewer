@@ -6,7 +6,10 @@ pub trait Read {
     fn provide(&self, from: &str) -> Result<Self::BufRead>;
 }
 
-impl<P> self::Read for &P where P: self::Read {
+impl<P> self::Read for &P
+where
+    P: self::Read,
+{
     type BufRead = P::BufRead;
 
     fn provide(&self, from: &str) -> Result<Self::BufRead> {
@@ -23,4 +26,3 @@ impl self::Read for PathReadProvider {
         Ok(std::io::BufReader::new(std::fs::File::open(from)?))
     }
 }
-

@@ -18,7 +18,7 @@ use crate::{
         Cmd, PathSet,
     },
     path_ext::PathExt as _,
-    Directive, Result, provide,
+    provide, Directive, Result,
 };
 
 type ParseResult<T> = std::result::Result<T, Cow<'static, str>>;
@@ -93,9 +93,14 @@ impl Source {
         }
     }
 
-    pub fn open(path: Arc<str>, cmd_directory: &mut cmd::Directory<Cmd>, provider: impl provide::Read) -> Result<Self> {
+    pub fn open(
+        path: Arc<str>,
+        cmd_directory: &mut cmd::Directory<Cmd>,
+        provider: impl provide::Read,
+    ) -> Result<Self> {
         Ok(Source {
-            read: provider.provide(path.as_ref())?
+            read: provider
+                .provide(path.as_ref())?
                 .pipe(BufReader::new)
                 .pipe(DirectiveReader::new)
                 .pipe(DirectiveStream::new),

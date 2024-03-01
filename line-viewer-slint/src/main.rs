@@ -164,7 +164,10 @@ fn run(file_path: &Path) -> Result<()> {
 
                 // Reload view
                 {
-                    match LineView::read(file_path.to_string_lossy(), PathReadProviderWrap::from(&path_set)) {
+                    match LineView::read(
+                        file_path.to_string_lossy(),
+                        PathReadProviderWrap::from(&path_set),
+                    ) {
                         Ok(v) => *view.write().unwrap() = v,
                         Err(err) => {
                             println!("{err}");

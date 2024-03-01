@@ -1,9 +1,4 @@
-use std::{
-    borrow::Cow,
-    cell::RefCell,
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{borrow::Cow, cell::RefCell, path::PathBuf, sync::Arc};
 
 use crate::{
     cmd,
@@ -12,7 +7,7 @@ use crate::{
         line::{self, Line},
         Directive, PathSet, Source,
     },
-    Cmd, Result, provide,
+    provide, Cmd, Result,
 };
 
 use super::{

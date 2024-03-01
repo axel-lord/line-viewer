@@ -7,7 +7,7 @@ use std::{
 use crate::{
     cmd,
     line_view::{source::Source, PathSet},
-    Cmd, provide,
+    provide, Cmd,
 };
 
 use super::{directive::Directive, line_map::DirectiveMapperChain};
@@ -63,9 +63,14 @@ impl<'line> Import<'line> {
     ) -> std::result::Result<Source, Directive<'static>> {
         let Self { file, kind } = self;
         match kind {
-            ImportKind::Source => {
-                source(&file, parent.dir, parent.cmd, parent.sourced, cmd_directory, provider)
-            }
+            ImportKind::Source => source(
+                &file,
+                parent.dir,
+                parent.cmd,
+                parent.sourced,
+                cmd_directory,
+                provider,
+            ),
             ImportKind::Import => import(&file, parent.dir, imported, cmd_directory, provider),
             ImportKind::Lines => lines(&file, parent.dir, parent.cmd, cmd_directory, provider),
         }
