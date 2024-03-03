@@ -1,6 +1,5 @@
 use std::{
     borrow::Cow,
-    path::Path,
     sync::{Arc, RwLock},
 };
 
@@ -23,15 +22,6 @@ enum ImportKind {
 pub struct Import<'line> {
     file: Cow<'line, str>,
     kind: ImportKind,
-}
-
-#[derive(Debug)]
-pub struct ImportCtx<'ctx> {
-    pub is_root: bool,
-    pub dir: &'ctx Path,
-    pub cmd: &'ctx Arc<RwLock<Cmd>>,
-    pub sourced: &'ctx Arc<RwLock<PathSet>>,
-    pub imported: &'ctx mut PathSet,
 }
 
 impl<'line> Import<'line> {
