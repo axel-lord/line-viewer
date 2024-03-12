@@ -15,10 +15,10 @@ use crate::{
         directive_reader::DirectiveReader,
         directive_source::{DirectiveSource, DirectiveStream},
         line_map::DirectiveMapperChain,
-        Cmd, PathSet,
+        Cmd,
     },
     path_ext::PathExt as _,
-    provide, Directive, Result,
+    provide, Directive, PathSet, Result,
 };
 
 type ParseResult<T> = std::result::Result<T, Cow<'static, str>>;

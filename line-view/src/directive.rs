@@ -1,6 +1,6 @@
 use std::{borrow::Cow, char};
 
-use crate::line_view::import::Import;
+use crate::Import;
 
 #[derive(Debug, Clone, Default)]
 pub enum Directive<'line> {

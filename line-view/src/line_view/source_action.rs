@@ -5,9 +5,9 @@ use crate::{
     line_view::{
         directive_source::DirectiveSource,
         line::{self, Line},
-        Directive, PathSet, Source,
+        Source,
     },
-    provide, Cmd, Result,
+    provide, Cmd, Result, Directive, PathSet,
 };
 
 use super::{

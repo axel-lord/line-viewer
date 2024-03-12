@@ -3,13 +3,8 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use crate::{
-    cmd,
-    line_view::{source::Source, PathSet},
-    provide, Cmd,
-};
+use crate::{cmd, line_view::{line_map::DirectiveMapperChain, source::Source}, provide, Cmd, Directive, PathSet};
 
-use super::{directive::Directive, line_map::DirectiveMapperChain};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ImportKind {

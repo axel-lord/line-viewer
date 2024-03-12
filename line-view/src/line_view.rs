@@ -1,12 +1,10 @@
 mod directive_reader;
 mod directive_source;
-mod import;
-mod line_map;
-mod source;
 mod source_action;
 
-pub(crate) mod directive;
 pub(crate) mod line;
+pub(crate) mod source;
+pub(crate) mod line_map;
 
 use std::sync::Arc;
 
@@ -14,11 +12,10 @@ use rustc_hash::FxHashSet;
 
 use crate::{
     cmd::{self, Cmd},
-    line_view::{directive::Directive, line::Line, source::Source},
+    line_view::{line::Line, source::Source},
     provide, Result,
 };
 
-type PathSet = FxHashSet<Arc<str>>;
 
 #[derive(Debug, Clone, Default)]
 pub struct LineView {
